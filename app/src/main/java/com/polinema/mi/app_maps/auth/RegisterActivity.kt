@@ -22,6 +22,7 @@ import com.google.firebase.ktx.Firebase
 import com.polinema.mi.app_maps.MainActivity
 import com.polinema.mi.app_maps.R
 import com.polinema.mi.app_maps.databinding.ActivityRegisterBinding
+import com.polinema.mi.app_maps.map.maps
 
 class RegisterActivity : AppCompatActivity() {
 
@@ -141,7 +142,7 @@ class RegisterActivity : AppCompatActivity() {
             override fun onDataChange(dataSnapshot: DataSnapshot) {
                 if (dataSnapshot.exists()) {
                     val nama = dataSnapshot.child("nama").value as String
-                    val intent = Intent(this@RegisterActivity, MainActivity::class.java)
+                    val intent = Intent(this@RegisterActivity, maps::class.java)
                     startActivity(intent)
                     Toast.makeText(this@RegisterActivity, "Selamat datang $nama", Toast.LENGTH_SHORT).show()
                 } else {

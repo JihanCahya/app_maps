@@ -584,11 +584,11 @@ class maps : AppCompatActivity(),
         // Polygon 1
         arrayPoly1.apply {
             clear()
-            add(LatLng(-7.809806, 112.090401))
-            add(LatLng(-7.809877, 112.090641))
-            add(LatLng(-7.810689, 112.090327))
-            add(LatLng(-7.810625, 112.090107))
-            add(LatLng(-7.809806, 112.090401))
+            add(LatLng(-7.388939128833573, 112.21985479770308))
+            add(LatLng(-7.389507147803895, 112.21987755700154))
+            add(LatLng(-7.38943567525839, 112.22051481735828))
+            add(LatLng(-7.38876232807788, 112.2204389530301))
+            add(LatLng(-7.388939128833573, 112.21985479770308))
         }
 
         poly1 = gMap.addPolygon(

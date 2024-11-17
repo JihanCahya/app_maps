@@ -1,7 +1,10 @@
 package com.polinema.mi.app_maps.map
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.location.Location
 import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
@@ -11,30 +14,27 @@ import android.view.View
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.*
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.CircleOptions
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.LatLngBounds
-import com.google.android.gms.maps.model.Marker
-import com.google.android.gms.maps.model.MarkerOptions
-import com.google.android.gms.maps.model.PointOfInterest
-import com.google.android.gms.maps.model.Polygon
-import com.google.android.gms.maps.model.PolygonOptions
-import com.google.android.gms.maps.model.PolylineOptions
+import com.google.android.gms.maps.model.*
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ValueEventListener
+import com.google.firebase.database.*
 import com.polinema.mi.app_maps.R
 import com.polinema.mi.app_maps.databinding.ActivityMapsBinding
+import org.json.JSONObject
+import java.net.URL
+import kotlinx.coroutines.*
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import javax.net.ssl.HttpsURLConnection
 
 class maps : AppCompatActivity(),
     View.OnClickListener,
@@ -43,7 +43,7 @@ class maps : AppCompatActivity(),
     GoogleMap.OnPoiClickListener,
     GoogleMap.OnMapLongClickListener,
     GoogleMap.OnInfoWindowClickListener,
-    GoogleMap.OnPolygonClickListener{
+    GoogleMap.OnPolygonClickListener {
 
     private lateinit var b: ActivityMapsBinding
     private lateinit var gMap: GoogleMap
@@ -54,49 +54,143 @@ class maps : AppCompatActivity(),
     private var nomorLokasi = 1
     private lateinit var markerId: String
 
-    // Variabel untuk pembaruan lokasi live
+    // Location updates
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var locationCallback: LocationCallback
+    private var currentLocationMarker: Marker? = null
     private var liveUpdateEnabled = false
-    private val handler = Handler(Looper.getMainLooper())
-    private var lastUpdatedLocation: LatLng? = null // Menyimpan lokasi terbaru
+    private var currentLocation: Location? = null
 
-//    gambar polygon
+    // Route
+    private var currentRoute: Polyline? = null
+
+    // Drawing polygon
     private var isDrawingPolygon = false
     private val polygonPoints = ArrayList<LatLng>()
     private var currentPolygon: Polygon? = null
     private val polygonsList = ArrayList<Polygon>()
 
-//    save polygon
-private lateinit var auth: FirebaseAuth
+    // Firebase
+    private lateinit var auth: FirebaseAuth
     private lateinit var database: FirebaseDatabase
     private lateinit var tambangRef: DatabaseReference
+
+    private val handler = Handler(Looper.getMainLooper())
+    private var lastUpdatedLocation: LatLng? = null
+
+    private val polygonMarkers = mutableMapOf<String, MutableList<Marker>>()
+    companion object {
+        private const val LOCATION_PERMISSION_REQUEST_CODE = 1
+        private const val UPDATE_INTERVAL = 5000L // 5 seconds
+        private const val FASTEST_INTERVAL = 3000L // 3 seconds
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         b = ActivityMapsBinding.inflate(layoutInflater)
         setContentView(b.root)
 
-        // Set OnClickListeners untuk FloatingActionButton
-        b.fabMap1.setOnClickListener(this)
-        b.fabMap2.setOnClickListener(this)
-        b.fabMap3.setOnClickListener(this)
-        b.fabMapDrawPolyline.setOnClickListener(this)
-        b.fabMapDrawPolygon.setOnClickListener(this)
-        b.fabMapDrawCircle.setOnClickListener(this)
-        b.chip.setOnClickListener(this)
-        b.fabMapCrudPolygon.setOnClickListener(this)
+        setupLocationServices()
+        setupUI()
+        setupFirebase()
+    }
+
+    private fun setupLocationServices() {
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                locationResult.lastLocation?.let { location ->
+                    updateLocationUI(location)
+                }
+            }
+        }
+    }
+
+    private fun updateLocationUI(location: Location) {
+        currentLocation = location
+        val latLng = LatLng(location.latitude, location.longitude)
+
+        currentLocationMarker?.remove()
+        currentLocationMarker = gMap.addMarker(
+            MarkerOptions()
+                .position(latLng)
+                .title("Lokasi Saya")
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
+        )
+
+        if (liveUpdateEnabled) {
+            gMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
+        }
+    }
+
+    private fun setupUI() {
+        b.apply {
+            fabMap1.setOnClickListener(this@maps)
+            fabMap2.setOnClickListener(this@maps)
+            fabMap3.setOnClickListener(this@maps)
+            fabMapDrawPolyline.setOnClickListener(this@maps)
+            fabMapDrawPolygon.setOnClickListener(this@maps)
+            fabMapDrawCircle.setOnClickListener(this@maps)
+            chip.setOnClickListener(this@maps)
+            fabMapCrudPolygon.setOnClickListener(this@maps)
+        }
+
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.fragment) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
-        // Mengatur aksi untuk EditText pencarian
         b.editText.setOnEditorActionListener { _, _, _ ->
-            val query = b.editText.text.toString().trim()
-            searchLocation(query)
+            searchLocation(b.editText.text.toString().trim())
             true
         }
-//        save polygon
+    }
+
+    private fun setupFirebase() {
         auth = Firebase.auth
         database = FirebaseDatabase.getInstance("https://app-maps-91b91-default-rtdb.asia-southeast1.firebasedatabase.app/")
         tambangRef = database.getReference("bidangTambang")
+    }
+
+    private fun createLocationCallback() {
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                for (location in locationResult.locations) {
+                    updateLocationUI(location)
+                }
+            }
+        }
+    }
+
+    private fun startLocationUpdates() {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                LOCATION_PERMISSION_REQUEST_CODE
+            )
+            return
+        }
+
+        val locationRequest = LocationRequest.create().apply {
+            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+            interval = UPDATE_INTERVAL
+            fastestInterval = FASTEST_INTERVAL
+        }
+
+        fusedLocationClient.requestLocationUpdates(
+            locationRequest,
+            locationCallback,
+            Looper.getMainLooper()
+        )
+    }
+
+    private fun stopLocationUpdates() {
+        fusedLocationClient.removeLocationUpdates(locationCallback)
+        currentLocationMarker?.remove()
+        currentLocationMarker = null
     }
 
     // Runnable untuk pembaruan lokasi secara live
@@ -111,6 +205,14 @@ private lateinit var auth: FirebaseAuth
 
     override fun onClick(v: View?) {
         when (v?.id) {
+            R.id.chip -> {
+                liveUpdateEnabled = b.chip.isChecked
+                if (liveUpdateEnabled) {
+                    startLocationUpdates()
+                } else {
+                    stopLocationUpdates()
+                }
+            }
             R.id.fabMap1 -> {
                 gMap.mapType = GoogleMap.MAP_TYPE_NORMAL
                 lastUpdatedLocation?.let { moveCameraToLocation(it) }
@@ -254,20 +356,214 @@ private lateinit var auth: FirebaseAuth
     override fun onPolygonClick(polygon: Polygon) {
         val tambangId = polygon.tag as? String ?: return
 
+        // Toggle vertex markers visibility
+        polygonMarkers[tambangId]?.forEach { marker ->
+            marker.isVisible = !marker.isVisible
+        }
+
         tambangRef.child(tambangId).get().addOnSuccessListener { snapshot ->
             val tambang = snapshot.getValue(BidangTambang::class.java)
             tambang?.let {
                 AlertDialog.Builder(this)
                     .setTitle("Info Tambang")
                     .setMessage("Nama: ${it.namaTambang}")
-                    .setPositiveButton("Edit") { _, _ -> editPolygon(polygon) }
+                    .setPositiveButton("Edit") { _, _ -> showEditOptions(polygon, tambangId) }
                     .setNegativeButton("Hapus") { _, _ -> deleteTambang(tambangId, polygon) }
-                    .setNeutralButton("Tutup", null)
+                    .setNeutralButton("Rute") { _, _ ->
+                        currentLocation?.let { location ->
+                            val origin = LatLng(location.latitude, location.longitude)
+                            val destination = tambang.polygonPoints.first().toLatLng()
+                            fetchOSRMRoute(origin, destination)
+                        } ?: Toast.makeText(this, "Lokasi saat ini tidak tersedia", Toast.LENGTH_SHORT).show()
+                    }
                     .show()
             }
         }
     }
+    private fun showEditOptions(polygon: Polygon, tambangId: String) {
+        val options = arrayOf("Edit Nama", "Edit Bentuk", "Sembunyikan Titik")
+        AlertDialog.Builder(this)
+            .setTitle("Pilih Opsi Edit")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> showEditNameDialog(tambangId)
+                    1 -> startPolygonEditing(polygon, tambangId)
+                    2 -> hidePolygonVertices(tambangId)
+                }
+            }
+            .show()
+    }
+    private fun showEditNameDialog(tambangId: String) {
+        val input = EditText(this)
+        AlertDialog.Builder(this)
+            .setTitle("Edit Nama Tambang")
+            .setView(input)
+            .setPositiveButton("Simpan") { _, _ ->
+                val newName = input.text.toString()
+                if (newName.isNotEmpty()) {
+                    tambangRef.child(tambangId).child("namaTambang").setValue(newName)
+                }
+            }
+            .setNegativeButton("Batal", null)
+            .show()
+    }
+    private fun startPolygonEditing(polygon: Polygon, tambangId: String) {
+        // Make vertex markers visible and draggable
+        polygonMarkers[tambangId]?.forEach { marker ->
+            marker.isVisible = true
+            marker.isDraggable = true
+        }
 
+        // Set up marker drag listener
+        gMap.setOnMarkerDragListener(object : GoogleMap.OnMarkerDragListener {
+            override fun onMarkerDragStart(marker: Marker) {}
+
+            override fun onMarkerDrag(marker: Marker) {
+                updatePolygonShape(polygon, tambangId)
+            }
+
+            override fun onMarkerDragEnd(marker: Marker) {
+                updatePolygonShape(polygon, tambangId)
+                saveUpdatedPolygon(polygon, tambangId)
+            }
+        })
+    }
+    private fun updatePolygonShape(polygon: Polygon, tambangId: String) {
+        val markers = polygonMarkers[tambangId] ?: return
+        polygon.points = markers.map { it.position }
+    }
+
+    private fun saveUpdatedPolygon(polygon: Polygon, tambangId: String) {
+        val points = polygon.points.map { LatLngData(it.latitude, it.longitude) }
+        tambangRef.child(tambangId).child("polygonPoints").setValue(points)
+    }
+
+    private fun hidePolygonVertices(tambangId: String) {
+        polygonMarkers[tambangId]?.forEach { marker ->
+            marker.isVisible = false
+            marker.isDraggable = false
+        }
+    }
+    private fun fetchOSRMRoute(origin: LatLng, destination: LatLng) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Format coordinates for OSRM (note: OSRM uses longitude,latitude order)
+                val coordinates = "${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}"
+                val url = "https://router.project-osrm.org/route/v1/driving/$coordinates?overview=full&geometries=polyline"
+
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+
+                val reader = BufferedReader(InputStreamReader(connection.inputStream))
+                val response = StringBuilder()
+                var line: String?
+
+                while (reader.readLine().also { line = it } != null) {
+                    response.append(line)
+                }
+
+                val jsonResponse = JSONObject(response.toString())
+                val routes = jsonResponse.getJSONArray("routes")
+
+                if (routes.length() > 0) {
+                    val route = routes.getJSONObject(0)
+                    val geometry = route.getString("geometry")
+                    val distance = route.getDouble("distance")
+                    val duration = route.getDouble("duration")
+
+                    withContext(Dispatchers.Main) {
+                        // Draw the route and show route information
+                        val decodedPath = decodePoly(geometry)
+                        drawRoute(decodedPath)
+
+                        // Show route information in a dialog
+                        val distanceKm = String.format("%.2f", distance / 1000)
+                        val durationMin = String.format("%.0f", duration / 60)
+
+                        AlertDialog.Builder(this@maps)
+                            .setTitle("Informasi Rute")
+                            .setMessage("Jarak: $distanceKm km\nWaktu tempuh: $durationMin menit")
+                            .setPositiveButton("OK", null)
+                            .setNeutralButton("Navigasi") { _, _ ->
+                                openGoogleMapsNavigation(destination)
+                            }
+                            .show()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@maps, "Error fetching route: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun drawRoute(decodedPath: List<LatLng>) {
+        // Remove existing route if any
+        currentRoute?.remove()
+
+        // Draw new route
+        currentRoute = gMap.addPolyline(
+            PolylineOptions()
+                .addAll(decodedPath)
+                .width(10f)
+                .color(Color.BLUE)
+                .geodesic(true)
+        )
+
+        // Zoom to show the entire route
+        val builder = LatLngBounds.Builder()
+        decodedPath.forEach { builder.include(it) }
+        val bounds = builder.build()
+        gMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100))
+    }
+
+    private fun decodePoly(encoded: String): List<LatLng> {
+        val poly = ArrayList<LatLng>()
+        var index = 0
+        val len = encoded.length
+        var lat = 0
+        var lng = 0
+
+        while (index < len) {
+            var b: Int
+            var shift = 0
+            var result = 0
+            do {
+                b = encoded[index++].code - 63
+                result = result or (b and 0x1f shl shift)
+                shift += 5
+            } while (b >= 0x20)
+            val dlat = if (result and 1 != 0) (result shr 1).inv() else result shr 1
+            lat += dlat
+
+            shift = 0
+            result = 0
+            do {
+                b = encoded[index++].code - 63
+                result = result or (b and 0x1f shl shift)
+                shift += 5
+            } while (b >= 0x20)
+            val dlng = if (result and 1 != 0) (result shr 1).inv() else result shr 1
+            lng += dlng
+
+            val p = LatLng(lat.toDouble() / 1E5, lng.toDouble() / 1E5)
+            poly.add(p)
+        }
+        return poly
+    }
+
+    private fun openGoogleMapsNavigation(destination: LatLng) {
+        val intentUri = Uri.parse("google.navigation:q=${destination.latitude},${destination.longitude}")
+        val mapIntent = Intent(Intent.ACTION_VIEW, intentUri)
+        mapIntent.setPackage("com.google.android.apps.maps")
+
+        if (mapIntent.resolveActivity(packageManager) != null) {
+            startActivity(mapIntent)
+        } else {
+            Toast.makeText(this, "Google Maps tidak terinstall", Toast.LENGTH_SHORT).show()
+        }
+    }
     private fun drawPolyline() {
         arrayLines.clear()
         arrayLines.apply {
@@ -544,8 +840,18 @@ private fun saveTambangToFirebase(namaTambang: String, polygon: Polygon) {
             .strokeWidth(5f)
             .clickable(true))
 
+        // Add markers for each polygon vertex
+        val markers = points.map { point ->
+            gMap.addMarker(MarkerOptions()
+                .position(point)
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE))
+                .draggable(true)
+                .visible(false)) // Initially hidden
+        }.filterNotNull().toMutableList()
+
         polygon.tag = tambang.id
         polygonsList.add(polygon)
+        polygonMarkers[tambang.id] = markers
     }
 
     private fun deleteTambang(tambangId: String, polygon: Polygon) {
@@ -566,7 +872,40 @@ private fun saveTambangToFirebase(namaTambang: String, polygon: Polygon) {
             .setNegativeButton("Tidak", null)
             .show()
     }
-}
+    private fun showRoute(origin: LatLng, destination: LatLng) {
+        // Clear existing route
+        currentRoute?.remove()
+
+        // Draw a simple direct route
+        currentRoute = gMap.addPolyline(
+            PolylineOptions()
+                .add(origin, destination)
+                .width(5f)
+                .color(Color.BLUE)
+                .geodesic(true)
+        )
+
+        // Open Google Maps for navigation
+        val intentUri = Uri.parse("google.navigation:q=${destination.latitude},${destination.longitude}")
+        val mapIntent = Intent(Intent.ACTION_VIEW, intentUri)
+        mapIntent.setPackage("com.google.android.apps.maps")
+
+        if (mapIntent.resolveActivity(packageManager) != null) {
+            startActivity(mapIntent)
+        } else {
+            Toast.makeText(this, "Google Maps tidak terinstall", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        stopLocationUpdates()
+    }
+
+        private fun LatLngData.toLatLng(): LatLng {
+            return LatLng(this.latitude, this.longitude)
+        }
+    }
 data class BidangTambang(
     val id: String = "",
     val namaTambang: String = "",

@@ -42,7 +42,6 @@ class maps : AppCompatActivity(),
     OnMapReadyCallback,
     GoogleMap.OnMarkerClickListener,
     GoogleMap.OnPoiClickListener,
-    GoogleMap.OnMapLongClickListener,
     GoogleMap.OnInfoWindowClickListener,
     GoogleMap.OnPolygonClickListener {
 
@@ -68,6 +67,7 @@ class maps : AppCompatActivity(),
     private val polygonPoints = ArrayList<LatLng>()
     private var currentPolygon: Polygon? = null
     private val polygonsList = ArrayList<Polygon>()
+    private val markerList = mutableListOf<Marker>()
 
     // Firebase
     private lateinit var auth: FirebaseAuth
@@ -148,7 +148,7 @@ class maps : AppCompatActivity(),
             true
         }
 
-        b.chip.isChecked = false
+        b.chip.isChecked = true
     }
 
     private fun setupFirebase() {
@@ -195,9 +195,7 @@ class maps : AppCompatActivity(),
             "jakarta" -> moveCameraToLocation(LatLng(-6.2088, 106.8456))
             "surabaya" -> moveCameraToLocation(LatLng(-7.2756, 112.6410))
             "bandung" -> moveCameraToLocation(LatLng(-6.9175, 107.6191))
-            // Tambahkan daerah lain sesuai kebutuhan
             else -> {
-                // Tampilkan dialog jika daerah tidak ditemukan
                 AlertDialog.Builder(this)
                     .setTitle("Daerah Tidak Ditemukan")
                     .setMessage("Daerah '$query' tidak ditemukan di peta.")
@@ -210,7 +208,6 @@ class maps : AppCompatActivity(),
     override fun onMapReady(googleMap: GoogleMap) {
         gMap = googleMap
         gMap.setOnPoiClickListener(this)
-        gMap.setOnMapLongClickListener(this)
         gMap.setOnMarkerClickListener(this)
         gMap.setOnInfoWindowClickListener(this)
         gMap.setOnPolygonClickListener(this)
@@ -227,8 +224,6 @@ class maps : AppCompatActivity(),
         gMap.setOnMapLongClickListener { latLng ->
             if (isDrawingPolygon && polygonPoints.size >= 3) {
                 completePolygon()
-            } else {
-                onMapLongClick(latLng)
             }
         }
 
@@ -282,18 +277,6 @@ class maps : AppCompatActivity(),
             .show()
     }
 
-    override fun onMapLongClick(pe: LatLng) {
-        val marker = gMap.addMarker(
-            MarkerOptions()
-                .position(pe)
-                .title("Lokasi ke-$nomorLokasi")
-                .snippet("Lat: ${pe.latitude}, Lng: ${pe.longitude}")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
-        )
-        arrayMarker.add(marker!!)
-        nomorLokasi++
-    }
-
     override fun onMarkerClick(pe: Marker): Boolean {
         markerId = pe.id
         gMap.animateCamera(CameraUpdateFactory.newLatLng(pe.position))
@@ -322,10 +305,9 @@ class maps : AppCompatActivity(),
     override fun onPolygonClick(polygon: Polygon) {
         val tambangId = polygon.tag as? String ?: return
 
-        // Toggle vertex markers visibility
-        polygonMarkers[tambangId]?.forEach { marker ->
-            marker.isVisible = !marker.isVisible
-        }
+//        polygonMarkers[tambangId]?.forEach { marker ->
+//            marker.isVisible = !marker.isVisible
+//        }
 
         tambangRef.child(tambangId).get().addOnSuccessListener { snapshot ->
             val tambang = snapshot.getValue(BidangTambang::class.java)
@@ -385,13 +367,17 @@ class maps : AppCompatActivity(),
             .show()
     }
     private fun startPolygonEditing(polygon: Polygon, tambangId: String) {
-        // Make vertex markers visible and draggable
         polygonMarkers[tambangId]?.forEach { marker ->
             marker.isVisible = true
             marker.isDraggable = true
         }
 
-        // Set up marker drag listener
+        Toast.makeText(
+            this@maps,
+            "Tahan lalu geser pada marker",
+            Toast.LENGTH_SHORT
+        ).show()
+
         gMap.setOnMarkerDragListener(object : GoogleMap.OnMarkerDragListener {
             override fun onMarkerDragStart(marker: Marker) {}
 
@@ -401,10 +387,44 @@ class maps : AppCompatActivity(),
 
             override fun onMarkerDragEnd(marker: Marker) {
                 updatePolygonShape(polygon, tambangId)
-                saveUpdatedPolygon(polygon, tambangId)
+                Toast.makeText(
+                    this@maps,
+                    "Tahan/klik lama untuk menyimpan",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         })
+
+        gMap.setOnMapLongClickListener { latLng ->
+            val markerInRange = polygonMarkers[tambangId]?.firstOrNull { marker ->
+                val distance = FloatArray(1)
+                android.location.Location.distanceBetween(
+                    latLng.latitude, latLng.longitude,
+                    marker.position.latitude, marker.position.longitude,
+                    distance
+                )
+                distance[0] < 50
+            }
+
+            if (markerInRange != null) {
+                AlertDialog.Builder(this)
+                    .setTitle("KONFIRMASI")
+                    .setMessage("Apakah anda yakin ingin menyimpan?")
+                    .setPositiveButton("OK") { _, _ ->
+                        saveUpdatedPolygon(polygon, tambangId)
+
+                        polygonMarkers[tambangId]?.forEach { marker ->
+                            marker.isVisible = false
+                            marker.isDraggable = false
+                        }
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+        }
     }
+
+
     private fun updatePolygonShape(polygon: Polygon, tambangId: String) {
         val markers = polygonMarkers[tambangId] ?: return
         polygon.points = markers.map { it.position }
@@ -576,11 +596,6 @@ class maps : AppCompatActivity(),
         val bounds = boundsBuilder.build()
         gMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100))
     }
-
-    override fun onStop() {
-        super.onStop()
-    }
-
 //    tambah polygon
 private fun startPolygonDrawing() {
     isDrawingPolygon = true
@@ -599,9 +614,12 @@ private fun startPolygonDrawing() {
         polygonPoints.add(latLng)
 
         // Tambahkan marker untuk menandai titik polygon
-        gMap.addMarker(MarkerOptions()
-            .position(latLng)
-            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)))
+        val marker = gMap.addMarker(
+            MarkerOptions()
+                .position(latLng)
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE))
+        )
+        marker?.let { markerList.add(it) }
 
         // Gambar polygon sementara jika sudah ada minimal 3 titik
         if (polygonPoints.size >= 3) {
@@ -722,6 +740,10 @@ private fun saveTambangToFirebase(namaTambang: String, polygon: Polygon) {
     // Save to Firebase
     tambangRef.child(tambangId).setValue(bidangTambang)
         .addOnSuccessListener {
+            // Hapus semua marker
+            markerList.forEach { it.remove() }
+            markerList.clear()
+
             Toast.makeText(this, "Data tambang berhasil disimpan", Toast.LENGTH_SHORT).show()
             // Save polygon reference locally
             polygon.tag = tambangId

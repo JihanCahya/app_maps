@@ -31,6 +31,7 @@ import com.polinema.mi.app_maps.databinding.ActivityMapsBinding
 import org.json.JSONObject
 import java.net.URL
 import kotlinx.coroutines.*
+import mumayank.com.airlocationlibrary.AirLocation
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
@@ -48,7 +49,6 @@ class maps : AppCompatActivity(),
     private lateinit var b: ActivityMapsBinding
     private lateinit var gMap: GoogleMap
     private val arrayMarker = ArrayList<Marker>()
-    private val arrayLines = ArrayList<LatLng>()
     private val arrayPoly1 = ArrayList<LatLng>()
     private lateinit var poly1: Polygon
     private var nomorLokasi = 1
@@ -58,7 +58,6 @@ class maps : AppCompatActivity(),
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
     private var currentLocationMarker: Marker? = null
-    private var liveUpdateEnabled = false
     private var currentLocation: Location? = null
 
     // Route
@@ -75,15 +74,14 @@ class maps : AppCompatActivity(),
     private lateinit var database: FirebaseDatabase
     private lateinit var tambangRef: DatabaseReference
 
-    private val handler = Handler(Looper.getMainLooper())
     private var lastUpdatedLocation: LatLng? = null
 
     private val polygonMarkers = mutableMapOf<String, MutableList<Marker>>()
-    companion object {
-        private const val LOCATION_PERMISSION_REQUEST_CODE = 1
-        private const val UPDATE_INTERVAL = 5000L // 5 seconds
-        private const val FASTEST_INTERVAL = 3000L // 3 seconds
-    }
+
+    var liveUpdate = true
+    lateinit var ll : LatLng
+    lateinit var airLoc : AirLocation
+    var marker : Marker? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -93,6 +91,17 @@ class maps : AppCompatActivity(),
         setupLocationServices()
         setupUI()
         setupFirebase()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        airLoc.onActivityResult(requestCode, resultCode, data)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        airLoc.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 
     private fun setupLocationServices() {
@@ -117,10 +126,6 @@ class maps : AppCompatActivity(),
                 .title("Lokasi Saya")
                 .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
         )
-
-        if (liveUpdateEnabled) {
-            gMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15f))
-        }
     }
 
     private fun setupUI() {
@@ -129,8 +134,9 @@ class maps : AppCompatActivity(),
             fabMap2.setOnClickListener(this@maps)
             fabMap3.setOnClickListener(this@maps)
             fabMapDrawPolygon.setOnClickListener(this@maps)
-            chip.setOnClickListener(this@maps)
             fabMapCrudPolygon.setOnClickListener(this@maps)
+            chip.setOnClickListener(this@maps)
+            fab.setOnClickListener(this@maps)
         }
 
         val mapFragment = supportFragmentManager
@@ -141,6 +147,8 @@ class maps : AppCompatActivity(),
             searchLocation(b.editText.text.toString().trim())
             true
         }
+
+        b.chip.isChecked = false
     }
 
     private fun setupFirebase() {
@@ -149,68 +157,8 @@ class maps : AppCompatActivity(),
         tambangRef = database.getReference("bidangTambang")
     }
 
-    private fun createLocationCallback() {
-        locationCallback = object : LocationCallback() {
-            override fun onLocationResult(locationResult: LocationResult) {
-                for (location in locationResult.locations) {
-                    updateLocationUI(location)
-                }
-            }
-        }
-    }
-
-    private fun startLocationUpdates() {
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                LOCATION_PERMISSION_REQUEST_CODE
-            )
-            return
-        }
-
-        val locationRequest = LocationRequest.create().apply {
-            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-            interval = UPDATE_INTERVAL
-            fastestInterval = FASTEST_INTERVAL
-        }
-
-        fusedLocationClient.requestLocationUpdates(
-            locationRequest,
-            locationCallback,
-            Looper.getMainLooper()
-        )
-    }
-
-    private fun stopLocationUpdates() {
-        fusedLocationClient.removeLocationUpdates(locationCallback)
-        currentLocationMarker?.remove()
-        currentLocationMarker = null
-    }
-
-    // Runnable untuk pembaruan lokasi secara live
-    private val liveUpdateRunnable = object : Runnable {
-        override fun run() {
-            if (liveUpdateEnabled) {
-                lastUpdatedLocation = LatLng(-7.0, 110.0) // Ganti dengan lokasi yang diperbarui
-                handler.postDelayed(this, 1000) // update setiap 1 detik
-            }
-        }
-    }
-
     override fun onClick(v: View?) {
         when (v?.id) {
-            R.id.chip -> {
-                liveUpdateEnabled = b.chip.isChecked
-                if (liveUpdateEnabled) {
-                    startLocationUpdates()
-                } else {
-                    stopLocationUpdates()
-                }
-            }
             R.id.fabMap1 -> {
                 gMap.mapType = GoogleMap.MAP_TYPE_NORMAL
                 lastUpdatedLocation?.let { moveCameraToLocation(it) }
@@ -227,8 +175,18 @@ class maps : AppCompatActivity(),
                 drawPolygon()
                 moveCameraToPolygon()
             }
-            R.id.chip -> liveUpdate(b.chip.isChecked)
             R.id.fabMapCrudPolygon -> startPolygonDrawing()
+            R.id.chip -> {
+                liveUpdate = b.chip.isChecked
+            }
+            R.id.fab -> {
+                b.chip.isChecked = false
+                liveUpdate = b.chip.isChecked
+                gMap.animateCamera(
+                    CameraUpdateFactory.newLatLngZoom(ll,16.0f))
+                b.editText.setText(
+                    "Posisi saya : LAT=${ll.latitude}, LNG=${ll.longitude}")
+            }
         }
     }
 
@@ -260,18 +218,52 @@ class maps : AppCompatActivity(),
         gMap.setOnMapClickListener { latLng ->
             if (isDrawingPolygon) {
                 addPolygonPoint(latLng)
+            } else {
+                b.editText.setText("${latLng}")
             }
         }
+
 
         gMap.setOnMapLongClickListener { latLng ->
             if (isDrawingPolygon && polygonPoints.size >= 3) {
                 completePolygon()
             } else {
-                onMapLongClick(latLng) // existing functionality
+                onMapLongClick(latLng)
             }
         }
-        val gurah = LatLng(-7.809840, 112.090409)
-        gMap.moveCamera(CameraUpdateFactory.newLatLngZoom(gurah, 10f))
+
+        airLoc = AirLocation(this, object : AirLocation.Callback {
+            override fun onFailure(locationFailedEnum: AirLocation.LocationFailedEnum) {
+                Toast.makeText(
+                    this@maps,
+                    "Gagal mendapatkan posisi saat ini",
+                    Toast.LENGTH_SHORT
+                ).show()
+                b.editText.setText("Gagal mendapatkan posisi saat ini")
+            }
+
+            override fun onSuccess(location: ArrayList<Location>) {
+                if (liveUpdate) {
+                    marker?.remove()
+                    val location = location.last()
+                    currentLocation = location
+                    ll = LatLng(location.latitude, location.longitude)
+                    marker = gMap.addMarker(MarkerOptions().position(ll).title("Posisi Saya"))
+                    gMap.moveCamera(CameraUpdateFactory.newLatLngZoom(ll, 16.0f))
+                    b.editText.setText("Posisi saya : LAT=${ll.latitude}, LNG=${ll.longitude}")
+
+                    gMap.setOnMarkerClickListener { clickedMarker ->
+                        val clickedPosition = clickedMarker.position
+                        b.editText.setText(
+                            "Posisi sekarang: LAT=${clickedPosition.latitude}, LNG=${clickedPosition.longitude}"
+                        )
+                        false
+                    }
+                }
+            }
+        })
+        airLoc.start()
+
         loadTambangData()
     }
 
@@ -344,11 +336,22 @@ class maps : AppCompatActivity(),
                     .setPositiveButton("Edit") { _, _ -> showEditOptions(polygon, tambangId) }
                     .setNegativeButton("Hapus") { _, _ -> deleteTambang(tambangId, polygon) }
                     .setNeutralButton("Rute") { _, _ ->
-                        currentLocation?.let { location ->
-                            val origin = LatLng(location.latitude, location.longitude)
+                        if (currentLocation != null) {
+                            val origin = LatLng(currentLocation!!.latitude, currentLocation!!.longitude)
                             val destination = tambang.polygonPoints.first().toLatLng()
                             fetchOSRMRoute(origin, destination)
-                        } ?: Toast.makeText(this, "Lokasi saat ini tidak tersedia", Toast.LENGTH_SHORT).show()
+                        } else {
+                            airLoc.start()
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                if (currentLocation != null) {
+                                    val origin = LatLng(currentLocation!!.latitude, currentLocation!!.longitude)
+                                    val destination = tambang.polygonPoints.first().toLatLng()
+                                    fetchOSRMRoute(origin, destination)
+                                } else {
+                                    Toast.makeText(this, "Mohon tunggu, sedang mendapatkan lokasi...", Toast.LENGTH_SHORT).show()
+                                }
+                            }, 2000)
+                        }
                     }
                     .show()
             }
@@ -574,19 +577,8 @@ class maps : AppCompatActivity(),
         gMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100))
     }
 
-    private fun liveUpdate(enabled: Boolean) {
-        liveUpdateEnabled = enabled
-        if (enabled) {
-            handler.post(liveUpdateRunnable) // Memulai pembaruan lokasi
-        } else {
-            handler.removeCallbacks(liveUpdateRunnable) // Menghentikan pembaruan lokasi
-        }
-    }
-
     override fun onStop() {
         super.onStop()
-        liveUpdateEnabled = false
-        handler.removeCallbacks(liveUpdateRunnable) // Menghentikan semua pembaruan saat activity berhenti
     }
 
 //    tambah polygon
@@ -833,7 +825,6 @@ private fun saveTambangToFirebase(namaTambang: String, polygon: Polygon) {
 
     override fun onDestroy() {
         super.onDestroy()
-        stopLocationUpdates()
     }
 
         private fun LatLngData.toLatLng(): LatLng {

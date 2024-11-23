@@ -125,7 +125,7 @@ class LoginActivity : AppCompatActivity(), View.OnClickListener {
             override fun onDataChange(dataSnapshot: DataSnapshot) {
                 if (dataSnapshot.exists()) {
                     val nama = dataSnapshot.child("nama").value as String
-                    val intent = Intent(this@LoginActivity, Map::class.java)
+                    val intent = Intent(this@LoginActivity, BaseActivity::class.java)
                     startActivity(intent)
                     Toast.makeText(this@LoginActivity, "Selamat datang $nama", Toast.LENGTH_SHORT).show()
                 } else {

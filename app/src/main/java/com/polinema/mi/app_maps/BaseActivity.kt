@@ -120,7 +120,7 @@ class BaseActivity : AppCompatActivity(), NavigationBarView.OnItemSelectedListen
                 true
             }
             R.id.itemWebView -> {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.instagram.com/garap.ind/"))
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.instagram.com/barokahjayamulia?igsh=ODVscW1ncjdncmN0"))
                 startActivity(intent)
             }
         }

@@ -44,17 +44,20 @@
         tools:ignore="ContentDescription" />
 
     <!-- Map Fragment Container -->
-    <androidx.fragment.app.FragmentContainerView
-        android:id="@+id/fragment"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:name="com.google.android.gms.maps.SupportMapFragment"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
 
     <!-- Edit Text -->
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/fragment"
+        android:name="com.google.android.gms.maps.SupportMapFragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.0" />
+
     <EditText
         android:id="@+id/editText"
         android:layout_width="0dp"
@@ -104,34 +107,14 @@
         app:srcCompat="@android:drawable/ic_menu_gallery" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabMapDrawPolyline"
+        android:id="@+id/fabMapDrawPolygon"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:clickable="true"
         app:layout_constraintEnd_toEndOf="@+id/fabMap3"
         app:layout_constraintTop_toBottomOf="@+id/fabMap3"
-        app:srcCompat="@android:drawable/ic_menu_share" />
-
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabMapDrawPolygon"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:clickable="true"
-        app:layout_constraintEnd_toEndOf="@+id/fabMapDrawPolyline"
-        app:layout_constraintTop_toBottomOf="@+id/fabMapDrawPolyline"
         app:srcCompat="@drawable/baseline_crop_square_24" />
-
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabMapDrawCircle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:clickable="true"
-        app:layout_constraintEnd_toEndOf="@+id/fabMapDrawPolygon"
-        app:layout_constraintTop_toBottomOf="@+id/fabMapDrawPolygon"
-        app:srcCompat="@drawable/baseline_circle_24" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabMapCrudPolygon"
@@ -139,8 +122,8 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:clickable="true"
-        app:layout_constraintEnd_toEndOf="@+id/fabMapDrawCircle"
-        app:layout_constraintTop_toBottomOf="@+id/fabMapDrawCircle"
-        app:srcCompat="@drawable/baseline_circle_24" />
+        app:layout_constraintEnd_toEndOf="@+id/fabMapDrawPolygon"
+        app:layout_constraintTop_toBottomOf="@+id/fabMapDrawPolygon"
+        app:srcCompat="@drawable/baseline_create_24" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

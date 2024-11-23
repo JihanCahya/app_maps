@@ -128,9 +128,7 @@ class maps : AppCompatActivity(),
             fabMap1.setOnClickListener(this@maps)
             fabMap2.setOnClickListener(this@maps)
             fabMap3.setOnClickListener(this@maps)
-            fabMapDrawPolyline.setOnClickListener(this@maps)
             fabMapDrawPolygon.setOnClickListener(this@maps)
-            fabMapDrawCircle.setOnClickListener(this@maps)
             chip.setOnClickListener(this@maps)
             fabMapCrudPolygon.setOnClickListener(this@maps)
         }
@@ -225,17 +223,9 @@ class maps : AppCompatActivity(),
                 gMap.mapType = GoogleMap.MAP_TYPE_TERRAIN
                 lastUpdatedLocation?.let { moveCameraToLocation(it) }
             }
-            R.id.fabMapDrawPolyline -> {
-                drawPolyline()
-                moveCameraToPolyline()
-            }
             R.id.fabMapDrawPolygon -> {
                 drawPolygon()
                 moveCameraToPolygon()
-            }
-            R.id.fabMapDrawCircle -> {
-                drawCircle()
-                moveCameraToCircle()
             }
             R.id.chip -> liveUpdate(b.chip.isChecked)
             R.id.fabMapCrudPolygon -> startPolygonDrawing()
@@ -268,13 +258,8 @@ class maps : AppCompatActivity(),
         gMap.setOnPolygonClickListener(this)
 
         gMap.setOnMapClickListener { latLng ->
-            addPointOfInterest(latLng) // Menangani klik pada peta
-        }
-        gMap.setOnMapClickListener { latLng ->
             if (isDrawingPolygon) {
                 addPolygonPoint(latLng)
-            } else {
-                addPointOfInterest(latLng) // existing functionality
             }
         }
 
@@ -315,17 +300,6 @@ class maps : AppCompatActivity(),
         )
         arrayMarker.add(marker!!)
         nomorLokasi++
-    }
-
-    private fun addPointOfInterest(latLng: LatLng) {
-        val marker = gMap.addMarker(
-            MarkerOptions()
-                .position(latLng)
-                .title("POI ${nomorLokasi++}")
-                .snippet("Lat: ${latLng.latitude}, Lng: ${latLng.longitude}")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW))
-        )
-        arrayMarker.add(marker!!)
     }
 
     override fun onMarkerClick(pe: Marker): Boolean {
@@ -564,21 +538,6 @@ class maps : AppCompatActivity(),
             Toast.makeText(this, "Google Maps tidak terinstall", Toast.LENGTH_SHORT).show()
         }
     }
-    private fun drawPolyline() {
-        arrayLines.clear()
-        arrayLines.apply {
-            add(LatLng(-7.8124227, 112.0116771)) // Kediri
-            add(LatLng(-7.5955433, 111.8302694)) // Nganjuk
-            add(LatLng(-7.3859208, 112.9490537)) // Malang
-        }
-
-        gMap.addPolyline(
-            PolylineOptions()
-                .addAll(arrayLines)
-                .color(Color.RED)
-                .width(10f)
-        )
-    }
 
     private fun drawPolygon() {
         // Polygon 1
@@ -602,28 +561,8 @@ class maps : AppCompatActivity(),
         poly1.tag = "Poly 1" // Menandai polygon
     }
 
-    private fun drawCircle() {
-        val circleOptions = CircleOptions()
-            .center(LatLng(-7.8124227, 112.0116771)) // Kediri
-            .radius(10000.0) // Radius dalam meter
-            .fillColor(Color.argb(50, 255, 0, 0))
-            .strokeColor(Color.RED)
-            .strokeWidth(5f)
-
-        gMap.addCircle(circleOptions)
-    }
-
     private fun moveCameraToLocation(location: LatLng) {
         gMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 12f))
-    }
-
-    private fun moveCameraToPolyline() {
-        val boundsBuilder = LatLngBounds.Builder()
-        for (point in arrayLines) {
-            boundsBuilder.include(point)
-        }
-        val bounds = boundsBuilder.build()
-        gMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100))
     }
 
     private fun moveCameraToPolygon() {
@@ -633,11 +572,6 @@ class maps : AppCompatActivity(),
         }
         val bounds = boundsBuilder.build()
         gMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100))
-    }
-
-    private fun moveCameraToCircle() {
-        val circleCenter = LatLng(-7.8124227, 112.0116771) // Kediri
-        gMap.animateCamera(CameraUpdateFactory.newLatLngZoom(circleCenter, 12f))
     }
 
     private fun liveUpdate(enabled: Boolean) {

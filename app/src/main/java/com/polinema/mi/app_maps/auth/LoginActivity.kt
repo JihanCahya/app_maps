@@ -16,6 +16,7 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import com.google.firebase.ktx.Firebase
+import com.polinema.mi.app_maps.BaseActivity
 import com.polinema.mi.app_maps.MainActivity
 import com.polinema.mi.app_maps.R
 import com.polinema.mi.app_maps.databinding.ActivityLoginBinding
@@ -124,7 +125,7 @@ class LoginActivity : AppCompatActivity(), View.OnClickListener {
             override fun onDataChange(dataSnapshot: DataSnapshot) {
                 if (dataSnapshot.exists()) {
                     val nama = dataSnapshot.child("nama").value as String
-                    val intent = Intent(this@LoginActivity, maps::class.java)
+                    val intent = Intent(this@LoginActivity, Map::class.java)
                     startActivity(intent)
                     Toast.makeText(this@LoginActivity, "Selamat datang $nama", Toast.LENGTH_SHORT).show()
                 } else {

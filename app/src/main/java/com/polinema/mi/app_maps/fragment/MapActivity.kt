@@ -355,6 +355,22 @@ class MapActivity : Fragment(),
                     .show()
             }
         }
+
+        val builder = AlertDialog.Builder(thisParent)
+        when (polygon.tag) {
+            "Poly 1" -> {
+                builder.setTitle("Tambang Pusat")
+                    .setMessage("Ini adalah tempat dari tambang pusat.")
+                    .setPositiveButton("Rute") { _, _ ->
+                        val origin = LatLng(currentLocation!!.latitude, currentLocation!!.longitude)
+                        val destination = LatLng(-7.388802353691033, 112.2202405706048)
+                        Toast.makeText(thisParent, "Mohon tunggu, sedang mendapatkan lokasi...", Toast.LENGTH_SHORT).show()
+                        fetchOSRMRoute(origin, destination)
+                    }
+                    .setNeutralButton("Keluar", null)
+                    .show()
+            }
+        }
     }
 
     private fun showEditOptions(polygon: Polygon, tambangId: String) {

@@ -68,7 +68,7 @@
         android:backgroundTint="#E4E4E4"
         android:text="Hapus Rute"
         android:textColor="#000000"
-        android:visibility="visible"
+        android:visibility="gone"
         app:icon="@drawable/baseline_timeline_24"
         app:iconTint="#000000"
         app:layout_constraintBottom_toBottomOf="@+id/chip"

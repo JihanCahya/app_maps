@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".fragment.EditLaporanActivity">
+
+    <EditText
+        android:id="@+id/inputTanggal2"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:layout_marginEnd="5dp"
+        android:clickable="false"
+        android:ems="10"
+        android:hint="Tanggal"
+        android:inputType="date"
+        android:longClickable="false"
+        app:layout_constraintEnd_toStartOf="@+id/btnDatePicker2"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="@+id/updateKodeLaporan"
+        app:layout_constraintTop_toBottomOf="@+id/spNamaPt2" />
+
+    <Spinner
+        android:id="@+id/spNamaPt2"
+        android:layout_width="0dp"
+        android:layout_height="40dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginEnd="20dp"
+        app:layout_constraintEnd_toEndOf="@+id/updateKodeLaporan"
+        app:layout_constraintStart_toStartOf="@+id/updateKodeLaporan"
+        app:layout_constraintTop_toBottomOf="@+id/updateKodeLaporan" />
+
+    <EditText
+        android:id="@+id/inputKubikasi2"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:ems="10"
+        android:hint="Kubikasi"
+        android:inputType="number|numberDecimal"
+        app:layout_constraintEnd_toEndOf="@+id/btnDatePicker2"
+        app:layout_constraintStart_toStartOf="@+id/inputTanggal2"
+        app:layout_constraintTop_toBottomOf="@+id/inputTanggal2" />
+
+    <EditText
+        android:id="@+id/inputRitase2"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:ems="10"
+        android:hint="Ritase"
+        android:inputType="number|numberDecimal"
+        app:layout_constraintEnd_toEndOf="@+id/inputKubikasi2"
+        app:layout_constraintStart_toStartOf="@+id/inputKubikasi2"
+        app:layout_constraintTop_toBottomOf="@+id/inputKubikasi2" />
+
+    <ImageView
+        android:id="@+id/imvFoto2"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_marginTop="10dp"
+        android:src="@android:drawable/ic_menu_report_image"
+        app:layout_constraintStart_toStartOf="@+id/inputRitase2"
+        app:layout_constraintTop_toBottomOf="@+id/inputRitase2" />
+
+    <Button
+        android:id="@+id/btnPilihFoto2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="5dp"
+        android:backgroundTint="#988A8A"
+        android:text="Pilih Foto"
+        android:textColor="#000000"
+        app:layout_constraintStart_toEndOf="@+id/imvFoto2"
+        app:layout_constraintTop_toTopOf="@+id/imvFoto2" />
+
+    <Button
+        android:id="@+id/btnUpdateData"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="15dp"
+        android:backgroundTint="#4CAF50"
+        android:text="Update Data"
+        app:icon="@drawable/baseline_save_24"
+        app:layout_constraintEnd_toEndOf="@+id/inputRitase2"
+        app:layout_constraintStart_toStartOf="@+id/imvFoto2"
+        app:layout_constraintTop_toBottomOf="@+id/imvFoto2" />
+
+    <Button
+        android:id="@+id/btnDatePicker2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Tanggal"
+        app:layout_constraintBottom_toBottomOf="@+id/inputTanggal"
+        app:layout_constraintEnd_toEndOf="@+id/updateKodeLaporan"
+        app:layout_constraintTop_toTopOf="@+id/inputTanggal2" />
+
+    <TextView
+        android:id="@+id/textView3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-condensed"
+        android:text="EDIT DATA LAPORAN"
+        android:textColor="#000000"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="@+id/btnKembali2"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/btnKembali2"
+        app:layout_constraintTop_toTopOf="@+id/btnKembali2" />
+
+    <Button
+        android:id="@+id/btnKembali2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="20dp"
+        android:backgroundTint="#F44336"
+        android:text="Kembali"
+        app:icon="@drawable/baseline_keyboard_double_arrow_left_24"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/updateKodeLaporan"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="15dp"
+        android:layout_marginEnd="20dp"
+        android:textColor="#000000"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btnKembali2" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

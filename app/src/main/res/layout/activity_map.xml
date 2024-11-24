@@ -31,6 +31,7 @@
         app:layout_constraintTop_toTopOf="@+id/fab" />
 
     <!-- Main Floating Action Button -->
+
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab"
         android:layout_width="wrap_content"
@@ -58,6 +59,21 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.0" />
+
+    <Button
+        android:id="@+id/btnDeleteRute"
+        android:layout_width="wrap_content"
+        android:layout_height="40dp"
+        android:layout_marginEnd="8dp"
+        android:backgroundTint="#E4E4E4"
+        android:text="Hapus Rute"
+        android:textColor="#000000"
+        android:visibility="visible"
+        app:icon="@drawable/baseline_timeline_24"
+        app:iconTint="#000000"
+        app:layout_constraintBottom_toBottomOf="@+id/chip"
+        app:layout_constraintEnd_toStartOf="@+id/chip"
+        app:layout_constraintTop_toTopOf="@+id/chip" />
 
     <EditText
         android:id="@+id/editText"

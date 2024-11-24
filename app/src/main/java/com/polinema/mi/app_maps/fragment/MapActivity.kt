@@ -334,6 +334,7 @@ class MapActivity : Fragment(),
                     .setPositiveButton("Edit") { _, _ -> showEditOptions(polygon, tambangId) }
                     .setNegativeButton("Hapus") { _, _ -> deleteTambang(tambangId, polygon) }
                     .setNeutralButton("Rute") { _, _ ->
+                        Toast.makeText(thisParent, "Mohon tunggu, sedang mendapatkan lokasi...", Toast.LENGTH_SHORT).show()
                         if (currentLocation != null) {
                             val origin = LatLng(currentLocation!!.latitude, currentLocation!!.longitude)
                             val destination = tambang.polygonPoints.first().toLatLng()
@@ -532,6 +533,19 @@ class MapActivity : Fragment(),
         decodedPath.forEach { builder.include(it) }
         val bounds = builder.build()
         gMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100))
+        b.btnDeleteRute.visibility = View.VISIBLE
+
+        b.btnDeleteRute.setOnClickListener {
+            clearRoute()
+            b.btnDeleteRute.visibility = View.GONE
+        }
+    }
+
+    private fun clearRoute() {
+//        gMap.clear()
+        currentRoute?.remove()
+        currentRoute = null
+        Toast.makeText(thisParent, "Rute dihapus", Toast.LENGTH_SHORT).show()
     }
 
     private fun decodePoly(encoded: String): List<LatLng> {

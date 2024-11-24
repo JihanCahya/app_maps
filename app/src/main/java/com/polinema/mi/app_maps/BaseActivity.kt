@@ -19,6 +19,7 @@ import com.polinema.mi.app_maps.auth.LoginActivity
 import com.polinema.mi.app_maps.databinding.ActivityBaseBinding
 import com.polinema.mi.app_maps.fragment.DashboardActivity
 import com.polinema.mi.app_maps.fragment.MapActivity
+import com.polinema.mi.app_maps.fragment.WebViewActivity
 
 class BaseActivity : AppCompatActivity(), NavigationBarView.OnItemSelectedListener {
 
@@ -27,6 +28,7 @@ class BaseActivity : AppCompatActivity(), NavigationBarView.OnItemSelectedListen
     var currentUser: FirebaseUser? = null
     lateinit var fragMap : MapActivity
     lateinit var fragDashboard : DashboardActivity
+    lateinit var fragWebView : WebViewActivity
     lateinit var ft : FragmentTransaction
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,6 +42,7 @@ class BaseActivity : AppCompatActivity(), NavigationBarView.OnItemSelectedListen
         b.bottomNavigationView.setOnItemSelectedListener(this)
         fragMap = MapActivity()
         fragDashboard = DashboardActivity()
+        fragWebView = WebViewActivity()
     }
 
     override fun onStart() {
@@ -93,7 +96,7 @@ class BaseActivity : AppCompatActivity(), NavigationBarView.OnItemSelectedListen
                 showLogoutConfirmationDialog()
             }
             R.id.itemProfile -> {
-                Toast.makeText(this, "Anda memilih menu profile", Toast.LENGTH_SHORT).show()
+                showProfileDialog()
             }
         }
         return super.onOptionsItemSelected(item)
@@ -120,10 +123,30 @@ class BaseActivity : AppCompatActivity(), NavigationBarView.OnItemSelectedListen
                 true
             }
             R.id.itemWebView -> {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.instagram.com/barokahjayamulia?igsh=ODVscW1ncjdncmN0"))
-                startActivity(intent)
+                ft = supportFragmentManager.beginTransaction()
+                ft.replace(R.id.frameLayout, fragWebView).commit()
+                b.frameLayout.setBackgroundColor(
+                    Color.argb(255, 255, 255, 255)
+                )
+                b.frameLayout.visibility = View.VISIBLE
+                true
             }
         }
         return true
+    }
+
+    private fun showProfileDialog() {
+        if (currentUser != null) {
+            val name = currentUser!!.displayName ?: "Name not set"
+            val email = currentUser!!.email ?: "Email not set"
+
+            AlertDialog.Builder(this)
+                .setTitle("Informasi Profil")
+                .setMessage("Name: $name\nEmail: $email")
+                .setPositiveButton("OK", null)
+                .show()
+        } else {
+            Toast.makeText(this, "No user is logged in", Toast.LENGTH_SHORT).show()
+        }
     }
 }

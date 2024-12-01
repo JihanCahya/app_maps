@@ -124,7 +124,7 @@ class LoginActivity : AppCompatActivity(), View.OnClickListener {
         databaseReference.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(dataSnapshot: DataSnapshot) {
                 if (dataSnapshot.exists()) {
-                    val nama = dataSnapshot.child("nama").value as String
+                    val nama = currentUser!!.displayName.toString()
                     val intent = Intent(this@LoginActivity, BaseActivity::class.java)
                     startActivity(intent)
                     Toast.makeText(this@LoginActivity, "Selamat datang $nama", Toast.LENGTH_SHORT).show()

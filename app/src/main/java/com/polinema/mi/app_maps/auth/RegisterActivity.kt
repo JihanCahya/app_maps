@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Base64
 import android.widget.Toast
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
@@ -23,10 +24,16 @@ import com.polinema.mi.app_maps.MainActivity
 import com.polinema.mi.app_maps.R
 import com.polinema.mi.app_maps.databinding.ActivityRegisterBinding
 import com.polinema.mi.app_maps.map.maps
+import java.security.SecureRandom
+import javax.crypto.Cipher
+import javax.crypto.spec.IvParameterSpec
+import javax.crypto.spec.SecretKeySpec
 
 class RegisterActivity : AppCompatActivity() {
 
     private lateinit var b: ActivityRegisterBinding
+    private lateinit var iv: IvParameterSpec
+    private var encryptedText: String = ""
     lateinit var auth: FirebaseAuth
     lateinit var progressDialog: ProgressDialog
     var currentUser : FirebaseUser? = null
@@ -159,9 +166,9 @@ class RegisterActivity : AppCompatActivity() {
     private fun saveUserDataToDatabase(uid: String, nama: String, email: String, password: String) {
         val userData = UserData(
             uid = uid,
-            nama = nama,
-            email = email,
-            password = password,
+            nama = encryptedText(nama),
+            email = encryptedText(email),
+            password = encryptedText(password),
         )
 
         usersRef.child(uid).setValue(userData)
@@ -171,6 +178,30 @@ class RegisterActivity : AppCompatActivity() {
             .addOnFailureListener { e ->
                 Toast.makeText(this, "Gagal Menambahkan User: ${e.message}", Toast.LENGTH_SHORT).show()
             }
+    }
+
+    fun encryptedText(text: String): String {
+        val secretKey = "1234567887654321"
+        val ivSpec = generateIv()
+
+        return try {
+            val keySpec = SecretKeySpec(secretKey.toByteArray(), "AES")
+            val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
+            cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec)
+            val encryptedBytes = cipher.doFinal(text.toByteArray())
+
+            val combined = ivSpec.iv + encryptedBytes
+            Base64.encodeToString(combined, Base64.DEFAULT)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            "Error: ${e.message}"
+        }
+    }
+
+    private fun generateIv(): IvParameterSpec {
+        val iv = ByteArray(16)
+        java.security.SecureRandom().nextBytes(iv)
+        return IvParameterSpec(iv)
     }
 }
 

@@ -20,6 +20,14 @@ import com.polinema.mi.app_maps.databinding.ActivityBaseBinding
 import com.polinema.mi.app_maps.fragment.DashboardActivity
 import com.polinema.mi.app_maps.fragment.MapActivity
 import com.polinema.mi.app_maps.fragment.WebViewActivity
+import javax.crypto.Cipher
+import javax.crypto.spec.IvParameterSpec
+import javax.crypto.spec.SecretKeySpec
+import android.util.Base64
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 
 class BaseActivity : AppCompatActivity(), NavigationBarView.OnItemSelectedListener {
 
@@ -136,17 +144,65 @@ class BaseActivity : AppCompatActivity(), NavigationBarView.OnItemSelectedListen
     }
 
     private fun showProfileDialog() {
+        val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser != null) {
-            val name = currentUser!!.displayName ?: "Name not set"
-            val email = currentUser!!.email ?: "Email not set"
+            val uid = currentUser.uid
+            val databaseReference = FirebaseDatabase.getInstance().getReference("users").child(uid)
 
-            AlertDialog.Builder(this)
-                .setTitle("Informasi Profil")
-                .setMessage("Name: $name\nEmail: $email")
-                .setPositiveButton("OK", null)
-                .show()
-        } else {
-            Toast.makeText(this, "No user is logged in", Toast.LENGTH_SHORT).show()
+            databaseReference.addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (snapshot.exists()) {
+                        val encryptedName = snapshot.child("nama").getValue(String::class.java) ?: "Name not set"
+                        val encryptedEmail = snapshot.child("email").getValue(String::class.java) ?: "Email not set"
+
+                        val decryptedName = if (encryptedName != "Name not set") {
+                            decryptText(encryptedName)
+                        } else {
+                            "Name not set"
+                        }
+
+                        val decryptedEmail = if (encryptedEmail != "Email not set") {
+                            decryptText(encryptedEmail)
+                        } else {
+                            "Email not set"
+                        }
+
+                        AlertDialog.Builder(this@BaseActivity)
+                            .setTitle("Informasi Profil")
+                            .setMessage("Name: $decryptedName\nEmail: $decryptedEmail")
+                            .setPositiveButton("OK", null)
+                            .show()
+                    } else {
+                        Toast.makeText(this@BaseActivity, "User data not found", Toast.LENGTH_SHORT).show()
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Toast.makeText(this@BaseActivity, "Failed to load user data: ${error.message}", Toast.LENGTH_SHORT).show()
+                }
+            })
+        }
+    }
+
+    fun decryptText(encryptedText: String): String {
+        val secretKey = "1234567887654321"
+
+        return try {
+            val keySpec = SecretKeySpec(secretKey.toByteArray(Charsets.UTF_8), "AES")
+            val cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING")
+
+            val encryptedData = Base64.decode(encryptedText, Base64.DEFAULT)
+
+            val iv = encryptedData.copyOfRange(0, 16)
+            val encryptedBytes = encryptedData.copyOfRange(16, encryptedData.size)
+
+            val ivSpec = IvParameterSpec(iv)
+            cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec)
+
+            val decryptedBytes = cipher.doFinal(encryptedBytes)
+            String(decryptedBytes, Charsets.UTF_8)
+        } catch (e: Exception) {
+            "Error: ${e.message}"
         }
     }
 }

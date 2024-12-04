@@ -60,7 +60,7 @@ class LoginActivity : AppCompatActivity(), View.OnClickListener {
     private fun isLoggedIn(): Boolean {
         return sharedPreferences.getBoolean("isLoggedIn", false)
     }
-
+//
     private fun saveLoginStatus(email: String, uid: String) {
         with(sharedPreferences.edit()) {
             putBoolean("isLoggedIn", true)

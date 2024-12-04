@@ -52,9 +52,9 @@ class LoginActivity : AppCompatActivity(), View.OnClickListener {
 
     override fun onStart() {
         super.onStart()
-        if (isLoggedIn()) {
-            autoLogin()
-        }
+//        if (isLoggedIn()) {
+//            autoLogin()
+//        }
     }
 
     private fun isLoggedIn(): Boolean {

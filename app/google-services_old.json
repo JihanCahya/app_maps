@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "891498384564",
+    "firebase_url": "https://app-maps-91b91-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "app-maps-91b91",
+    "storage_bucket": "app-maps-91b91.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:891498384564:android:c2ad112e0084f811dd5be1",
+        "android_client_info": {
+          "package_name": "com.polinema.mi.app_maps"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCnGDluaoSoA175vmyBcMZCDmigfu2lVqo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

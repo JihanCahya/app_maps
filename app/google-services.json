@@ -1,14 +1,71 @@
 {
   "project_info": {
-    "project_number": "891498384564",
-    "firebase_url": "https://app-maps-91b91-default-rtdb.asia-southeast1.firebasedatabase.app",
-    "project_id": "app-maps-91b91",
-    "storage_bucket": "app-maps-91b91.firebasestorage.app"
+    "project_number": "484168827276",
+    "firebase_url": "https://pml-sem-5-default-rtdb.firebaseio.com",
+    "project_id": "pml-sem-5",
+    "storage_bucket": "pml-sem-5.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:891498384564:android:c2ad112e0084f811dd5be1",
+        "mobilesdk_app_id": "1:484168827276:android:77ba6ad6a5693928a7d6a9",
+        "android_client_info": {
+          "package_name": "com.example.kel6_android"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCkyTrguP3jk27opWL0T1_d3AqXbWa19fE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:484168827276:android:b0006f1a19a66148a7d6a9",
+        "android_client_info": {
+          "package_name": "com.example.muhammadmuthoharun_2231730146_pmlper2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCkyTrguP3jk27opWL0T1_d3AqXbWa19fE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:484168827276:android:954091d7220e7047a7d6a9",
+        "android_client_info": {
+          "package_name": "com.example.muhammadmuthoharun_2231730146_pmlper6"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCkyTrguP3jk27opWL0T1_d3AqXbWa19fE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:484168827276:android:438de8e2e0516738a7d6a9",
         "android_client_info": {
           "package_name": "com.polinema.mi.app_maps"
         }
@@ -16,7 +73,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCnGDluaoSoA175vmyBcMZCDmigfu2lVqo"
+          "current_key": "AIzaSyCkyTrguP3jk27opWL0T1_d3AqXbWa19fE"
         }
       ],
       "services": {

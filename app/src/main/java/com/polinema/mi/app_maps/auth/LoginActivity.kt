@@ -119,7 +119,7 @@ class LoginActivity : AppCompatActivity(), View.OnClickListener {
     }
 
     private fun checkUserRole(userId: String) {
-        val databaseReference = FirebaseDatabase.getInstance("https://app-maps-91b91-default-rtdb.asia-southeast1.firebasedatabase.app/").reference.child("users").child(userId)
+        val databaseReference = FirebaseDatabase.getInstance("https://pml-sem-5-default-rtdb.firebaseio.com/").reference.child("users").child(userId)
 
         databaseReference.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(dataSnapshot: DataSnapshot) {

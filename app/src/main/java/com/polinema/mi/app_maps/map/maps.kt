@@ -153,7 +153,7 @@ class maps : AppCompatActivity(),
 
     private fun setupFirebase() {
         auth = Firebase.auth
-        database = FirebaseDatabase.getInstance("https://app-maps-91b91-default-rtdb.asia-southeast1.firebasedatabase.app/")
+        database = FirebaseDatabase.getInstance("https://pml-sem-5-default-rtdb.firebaseio.com/")
         tambangRef = database.getReference("bidangTambang")
     }
 

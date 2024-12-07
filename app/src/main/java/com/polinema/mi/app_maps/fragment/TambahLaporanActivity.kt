@@ -20,6 +20,14 @@ import com.google.firebase.database.FirebaseDatabase
 import com.polinema.mi.app_maps.BaseActivity
 import com.polinema.mi.app_maps.R
 import com.polinema.mi.app_maps.databinding.ActivityTambahLaporanBinding
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.Body
+import retrofit2.http.GET
+import retrofit2.http.POST
 import java.util.Calendar
 
 class TambahLaporanActivity : Fragment(), View.OnClickListener {
@@ -50,13 +58,38 @@ class TambahLaporanActivity : Fragment(), View.OnClickListener {
         return v
     }
 
-    private fun setupPtSpinner() {
-        val categories = listOf("PT. GARUDA", "PT. ELANG")
-        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, categories)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        b.spNamaPt.adapter = adapter
-    }
+    private var BASE_URL = "http://172.20.10.4:8000/api/v1/"
 
+    private fun setupPtSpinner() {
+        val retrofit = Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+
+        val ptService = retrofit.create(PTService::class.java)
+
+        ptService.getAllPT().enqueue(object : Callback<List<PT>> {
+            override fun onResponse(call: Call<List<PT>>, response: Response<List<PT>>) {
+                if (response.isSuccessful) {
+                    val ptList = response.body() ?: emptyList()
+                    val ptNames = ptList.map { it.nama }
+                    val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, ptNames)
+                    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                    b.spNamaPt.adapter = adapter
+                } else {
+                    Toast.makeText(thisParent, "Failed to load PT data", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onFailure(call: Call<List<PT>>, t: Throwable) {
+                Toast.makeText(thisParent, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+    interface PTService {
+        @GET("pt")
+        fun getAllPT(): Call<List<PT>>
+    }
     private fun setupFirebase() {
         auth = Firebase.auth
         database = FirebaseDatabase.getInstance("https://app-maps-91b91-default-rtdb.asia-southeast1.firebasedatabase.app/")
@@ -94,7 +127,33 @@ class TambahLaporanActivity : Fragment(), View.OnClickListener {
                 datePickerDialog.show()
             }
             R.id.btnTambahData -> {
-                saveLaporanToFirebase()
+                val retrofit = Retrofit.Builder()
+                    .baseUrl(BASE_URL)
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build()
+
+                val ptService = retrofit.create(PTService::class.java)
+
+                ptService.getAllPT().enqueue(object : Callback<List<PT>> {
+                    override fun onResponse(call: Call<List<PT>>, response: Response<List<PT>>) {
+                        if (response.isSuccessful) {
+                            val ptList = response.body() ?: emptyList()
+                            val selectedPt = ptList.find { it.nama == b.spNamaPt.selectedItem.toString() }
+
+                            if (selectedPt != null) {
+                                saveLaporanToFirebase(selectedPt)
+                            } else {
+                                Toast.makeText(thisParent, "Pilih PT terlebih dahulu", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            Toast.makeText(thisParent, "Gagal mengambil data PT", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+
+                    override fun onFailure(call: Call<List<PT>>, t: Throwable) {
+                        Toast.makeText(thisParent, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                    }
+                })
             }
         }
     }
@@ -112,7 +171,7 @@ class TambahLaporanActivity : Fragment(), View.OnClickListener {
             b.imvFoto.setImageURI(imageUri)
         }
     }
-    private fun saveLaporanToFirebase() {
+    private fun saveLaporanToFirebase(selectedPt: PT) {
         val user: FirebaseUser? = auth.currentUser
         val userId = user?.uid
 
@@ -121,13 +180,14 @@ class TambahLaporanActivity : Fragment(), View.OnClickListener {
         val tanggal = b.inputTanggal.text.toString()
         val kubikasi = b.inputKubikasi.text.toString()
         val ritase = b.inputRitase.text.toString()
-        val fotoUri = imageUri.toString()
+        val fotoUri = "-" // Default value when no photo is uploaded
 
-        if (namaPt.isEmpty() || tanggal.isEmpty() || kubikasi.isEmpty() || ritase.isEmpty() || fotoUri.isNullOrEmpty()) {
+        if (namaPt.isEmpty() || tanggal.isEmpty() || kubikasi.isEmpty() || ritase.isEmpty()) {
             Toast.makeText(thisParent, "Semua form wajib dilengkapi", Toast.LENGTH_SHORT).show()
             return
         }
 
+        // Save to Firebase
         val laporan = Laporan(
             kodeLaporan = kodeLaporan,
             userId = userId,
@@ -135,25 +195,109 @@ class TambahLaporanActivity : Fragment(), View.OnClickListener {
             tanggal = tanggal,
             kubikasi = kubikasi,
             ritase = ritase,
-            foto = fotoUri
+            foto = fotoUri,
+            idPt = selectedPt.id_pt
         )
 
         if (userId != null) {
+            // Firebase save
             laporanRef.child(userId).child(kodeLaporan).setValue(laporan)
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        Toast.makeText(thisParent, "Data berhasil dimasukkan", Toast.LENGTH_SHORT).show()
-                        val fragment = DashboardActivity()
-                        val fragmentManager = parentFragmentManager
-                        val transaction = fragmentManager.beginTransaction()
-                        transaction.replace(R.id.frameLayout, fragment)
-                        transaction.addToBackStack(null)
-                        transaction.commit()
+                .addOnCompleteListener { firebaseTask ->
+                    if (firebaseTask.isSuccessful) {
+                        // After successful Firebase save, send to MySQL via API
+                        sendLaporanToMySQL(kodeLaporan, namaPt, tanggal, kubikasi, ritase, fotoUri, selectedPt)
                     } else {
-                        Toast.makeText(thisParent, "Data gagal dimasukkan", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(thisParent, "Data gagal dimasukkan di Firebase", Toast.LENGTH_SHORT).show()
                     }
                 }
         }
+    }
+
+    private fun sendLaporanToMySQL(
+        kodeLaporan: String,
+        namaPt: String,
+        tanggal: String,
+        kubikasi: String,
+        ritase: String,
+        fotoUri: String,
+        selectedPt: PT
+    ) {
+        val retrofit = Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+
+        val laporanService = retrofit.create(LaporanService::class.java)
+
+        val user: FirebaseUser? = auth.currentUser
+        val userId = user?.uid
+
+        val laporanData = HashMap<String, String>().apply {
+            put("id_user", userId.toString())
+            put("id_pt", selectedPt.id_pt.toString())
+            put("tanggal", tanggal)
+            put("ritase", ritase)
+            put("kubikasi", kubikasi)
+            put("id_laporan_fb", kodeLaporan)
+            put("created_by", userId.toString())
+        }
+
+        // Debug: Print the request data
+        println("Request URL: ${BASE_URL}laporan/store")
+        println("Request Data: $laporanData")
+
+        laporanService.createLaporan(laporanData).enqueue(object : Callback<Map<String, Any>> {
+            override fun onResponse(call: Call<Map<String, Any>>, response: Response<Map<String, Any>>) {
+                if (response.isSuccessful) {
+                    Toast.makeText(thisParent, "Data berhasil dimasukkan", Toast.LENGTH_SHORT).show()
+                    navigateToDashboard()
+                } else {
+                    try {
+                        val errorBody = response.errorBody()?.string()
+                        println("Error Response Code: ${response.code()}")
+                        println("Error Response Body: $errorBody")
+                        Toast.makeText(
+                            thisParent,
+                            "Gagal: HTTP ${response.code()} - $errorBody",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    } catch (e: Exception) {
+                        println("Error parsing error response: ${e.message}")
+                        Toast.makeText(
+                            thisParent,
+                            "Gagal mengirim data: ${response.code()}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
+
+            override fun onFailure(call: Call<Map<String, Any>>, t: Throwable) {
+                println("Network Error: ${t.message}")
+                println("Stack trace: ${t.stackTraceToString()}")
+                Toast.makeText(
+                    thisParent,
+                    "Network Error: ${t.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        })
+    }
+
+    // Update the interface for proper error handling
+    interface LaporanService {
+        @POST("laporan/store")
+        fun createLaporan(@Body laporanData: Map<String, String>): Call<Map<String, Any>>
+    }
+
+    // Helper method to navigate to dashboard
+    private fun navigateToDashboard() {
+        val fragment = DashboardActivity()
+        val fragmentManager = parentFragmentManager
+        val transaction = fragmentManager.beginTransaction()
+        transaction.replace(R.id.frameLayout, fragment)
+        transaction.addToBackStack(null)
+        transaction.commit()
     }
 
     data class Laporan(
@@ -163,6 +307,14 @@ class TambahLaporanActivity : Fragment(), View.OnClickListener {
         val tanggal: String,
         val kubikasi: String,
         val ritase: String,
-        val foto: String
+        val foto: String,
+        val idPt: Int
+    )
+    data class PT(
+        val id_pt: Int,
+        val nama: String,
+        val harga_perkubikasi: Int,
+        val ongkos_supir: Int,
+        val harga_material: Int
     )
 }

@@ -4,6 +4,8 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.polinema.mi.app_maps.R
 import com.polinema.mi.app_maps.databinding.ItemLaporanBinding
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -17,7 +19,7 @@ class LaporanAdapter(
     fun updateProducts(newlaporan: List<Laporan>) {
         Laporan.clear()
         Laporan.addAll(newlaporan)
-        Log.d("ProductAdapter", "Updating products: ${Laporan.size} items")
+        Log.d("LaporanAdapter", "Updating laporan: ${Laporan.size} items")
         notifyDataSetChanged()
     }
 
@@ -31,7 +33,7 @@ class LaporanAdapter(
 
     override fun onBindViewHolder(holder: LaporanAdapter.LaporanViewHolder, position: Int) {
         val laporan = Laporan[position]
-        Log.d("ProductAdapter", "Binding product at position $position: ${laporan.namaPt}")
+        Log.d("LaporanAdapter", "Binding laporan at position $position: ${laporan.namaPt}")
         holder.bind(laporan)
     }
 
@@ -53,6 +55,13 @@ class LaporanAdapter(
                 tvPt.text = laporan.namaPt
                 tvKubikasi.text = "Kubikasi: ${laporan.kubikasi}"
                 tvRitase.text = "Ritase: ${laporan.ritase}"
+
+                // Tambahkan Glide untuk memuat foto dari URL
+                Glide.with(itemView.context)
+                    .load(laporan.foto)
+                    .placeholder(R.drawable.bg) // Tambahkan placeholder image
+                    .error(R.drawable.bg) // Tambahkan error image jika gagal memuat
+                    .into(ivProductImage)
 
                 btnEdit.setOnClickListener { onEditClick(laporan) }
                 btnDelete.setOnClickListener { onDeleteClick(laporan) }

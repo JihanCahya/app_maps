@@ -5,6 +5,7 @@ import android.app.DatePickerDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -29,7 +30,16 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import java.util.Calendar
-
+import retrofit2.http.Multipart
+import android.provider.MediaStore
+import com.google.firebase.storage.FirebaseStorage
+import okhttp3.RequestBody
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import retrofit2.http.Part
+import java.io.File
 class TambahLaporanActivity : Fragment(), View.OnClickListener {
 
     private lateinit var b : ActivityTambahLaporanBinding
@@ -58,7 +68,7 @@ class TambahLaporanActivity : Fragment(), View.OnClickListener {
         return v
     }
 
-    private var BASE_URL = "http://172.20.10.4:8000/api/v1/"
+    private var BASE_URL = "http://192.168.0.143:8000/api/v1/"
 
     private fun setupPtSpinner() {
         val retrofit = Retrofit.Builder()
@@ -83,6 +93,7 @@ class TambahLaporanActivity : Fragment(), View.OnClickListener {
 
             override fun onFailure(call: Call<List<PT>>, t: Throwable) {
                 Toast.makeText(thisParent, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                Log.e("","Error: ${t.message}")
             }
         })
     }
@@ -180,47 +191,89 @@ class TambahLaporanActivity : Fragment(), View.OnClickListener {
         val tanggal = b.inputTanggal.text.toString()
         val kubikasi = b.inputKubikasi.text.toString()
         val ritase = b.inputRitase.text.toString()
-        val fotoUri = "-" // Default value when no photo is uploaded
 
         if (namaPt.isEmpty() || tanggal.isEmpty() || kubikasi.isEmpty() || ritase.isEmpty()) {
             Toast.makeText(thisParent, "Semua form wajib dilengkapi", Toast.LENGTH_SHORT).show()
             return
         }
 
-        // Save to Firebase
-        val laporan = Laporan(
-            kodeLaporan = kodeLaporan,
-            userId = userId,
-            namaPt = namaPt,
-            tanggal = tanggal,
-            kubikasi = kubikasi,
-            ritase = ritase,
-            foto = fotoUri,
-            idPt = selectedPt.id_pt
-        )
-
-        if (userId != null) {
-            // Firebase save
-            laporanRef.child(userId).child(kodeLaporan).setValue(laporan)
-                .addOnCompleteListener { firebaseTask ->
-                    if (firebaseTask.isSuccessful) {
-                        // After successful Firebase save, send to MySQL via API
-                        sendLaporanToMySQL(kodeLaporan, namaPt, tanggal, kubikasi, ritase, fotoUri, selectedPt)
-                    } else {
-                        Toast.makeText(thisParent, "Data gagal dimasukkan di Firebase", Toast.LENGTH_SHORT).show()
-                    }
-                }
+        // Check if image is selected
+        if (imageUri == null) {
+            Toast.makeText(thisParent, "Pilih foto terlebih dahulu", Toast.LENGTH_SHORT).show()
+            return
         }
+
+        // Create a reference for the image in Firebase Storage
+        val storageReference = FirebaseStorage.getInstance().reference
+        val imageRef = storageReference.child("laporan/${kodeLaporan}_${System.currentTimeMillis()}.jpg")
+
+        // Upload image to Firebase Storage
+        imageRef.putFile(imageUri!!).addOnSuccessListener { taskSnapshot ->
+            // Get the download URL of the uploaded image
+            imageRef.downloadUrl.addOnSuccessListener { uri ->
+                val imageUrl = uri.toString()
+
+                // Create Laporan object with the image URL
+                val laporan = Laporan(
+                    kodeLaporan = kodeLaporan,
+                    userId = userId,
+                    namaPt = namaPt,
+                    tanggal = tanggal,
+                    kubikasi = kubikasi,
+                    ritase = ritase,
+                    foto = imageUrl, // Use the Firebase Storage URL
+                    idPt = selectedPt.id_pt
+                )
+
+                // Save to Firebase Realtime Database
+                if (userId != null) {
+                    laporanRef.child(userId).child(kodeLaporan).setValue(laporan)
+                        .addOnCompleteListener { firebaseTask ->
+                            if (firebaseTask.isSuccessful) {
+                                // Kirim ke MySQL dengan URL foto
+                                sendLaporanToMySQL(
+                                    imageUrl, // Kirim URL foto
+                                    userId,
+                                    selectedPt,
+                                    tanggal,
+                                    ritase,
+                                    kubikasi,
+                                    kodeLaporan
+                                )
+                                Toast.makeText(thisParent, "Laporan berhasil disimpan", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(thisParent, "Data gagal dimasukkan di Firebase", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        .addOnFailureListener { exception ->
+                            Toast.makeText(thisParent, "Gagal menyimpan: ${exception.message}", Toast.LENGTH_SHORT).show()
+                        }
+                }
+            }.addOnFailureListener { exception ->
+                Toast.makeText(thisParent, "Gagal mendapatkan URL gambar: ${exception.message}", Toast.LENGTH_SHORT).show()
+            }
+        }.addOnFailureListener { exception ->
+            Toast.makeText(thisParent, "Gagal mengunggah gambar: ${exception.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+    private fun getRealPathFromURI(uri: Uri): String {
+        val projection = arrayOf(MediaStore.Images.Media.DATA)
+        val cursor = requireContext().contentResolver.query(uri, projection, null, null, null)
+        return cursor?.use {
+            val columnIndex = it.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
+            it.moveToFirst()
+            it.getString(columnIndex)
+        } ?: uri.path ?: ""
     }
 
     private fun sendLaporanToMySQL(
-        kodeLaporan: String,
-        namaPt: String,
+        imageUrl: String, // Ganti parameter MultipartBody.Part dengan String imageUrl
+        userId: String,
+        selectedPt: PT,
         tanggal: String,
-        kubikasi: String,
         ritase: String,
-        fotoUri: String,
-        selectedPt: PT
+        kubikasi: String,
+        kodeLaporan: String
     ) {
         val retrofit = Retrofit.Builder()
             .baseUrl(BASE_URL)
@@ -229,24 +282,21 @@ class TambahLaporanActivity : Fragment(), View.OnClickListener {
 
         val laporanService = retrofit.create(LaporanService::class.java)
 
-        val user: FirebaseUser? = auth.currentUser
-        val userId = user?.uid
+        // Ubah interface LaporanService untuk menerima URL foto sebagai string
 
-        val laporanData = HashMap<String, String>().apply {
-            put("id_user", userId.toString())
-            put("id_pt", selectedPt.id_pt.toString())
-            put("tanggal", tanggal)
-            put("ritase", ritase)
-            put("kubikasi", kubikasi)
-            put("id_laporan_fb", kodeLaporan)
-            put("created_by", userId.toString())
-        }
 
-        // Debug: Print the request data
-        println("Request URL: ${BASE_URL}laporan/store")
-        println("Request Data: $laporanData")
+        // Tambahkan data class untuk request body
+        val laporanRequest = LaporanRequest(
+            id_user = userId,
+            id_pt = selectedPt.id_pt,
+            tanggal = tanggal,
+            ritase = ritase,
+            kubikasi = kubikasi,
+            foto = imageUrl, // Kirim URL foto dari Firebase
+            id_laporan_fb = kodeLaporan
+        )
 
-        laporanService.createLaporan(laporanData).enqueue(object : Callback<Map<String, Any>> {
+        laporanService.createLaporan(laporanRequest).enqueue(object : Callback<Map<String, Any>> {
             override fun onResponse(call: Call<Map<String, Any>>, response: Response<Map<String, Any>>) {
                 if (response.isSuccessful) {
                     Toast.makeText(thisParent, "Data berhasil dimasukkan", Toast.LENGTH_SHORT).show()
@@ -284,11 +334,19 @@ class TambahLaporanActivity : Fragment(), View.OnClickListener {
         })
     }
 
+    data class LaporanRequest(
+        val id_user: String,
+        val id_pt: Int,
+        val tanggal: String,
+        val ritase: String,
+        val kubikasi: String,
+        val foto: String,
+        val id_laporan_fb: String
+    )
+
+    // Buat objek request dengan URL foto
+
     // Update the interface for proper error handling
-    interface LaporanService {
-        @POST("laporan/store")
-        fun createLaporan(@Body laporanData: Map<String, String>): Call<Map<String, Any>>
-    }
 
     // Helper method to navigate to dashboard
     private fun navigateToDashboard() {
@@ -299,7 +357,12 @@ class TambahLaporanActivity : Fragment(), View.OnClickListener {
         transaction.addToBackStack(null)
         transaction.commit()
     }
-
+    interface LaporanService {
+        @POST("laporan/store")
+        fun createLaporan(
+            @Body laporanData: LaporanRequest
+        ): Call<Map<String, Any>>
+    }
     data class Laporan(
         val kodeLaporan: String,
         val userId: String?,

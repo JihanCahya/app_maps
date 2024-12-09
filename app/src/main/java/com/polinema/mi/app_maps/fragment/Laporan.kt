@@ -5,5 +5,6 @@ data class Laporan(
     var kubikasi: String = "",
     var ritase: String = "",
     var namaPt: String = "",
-    var kodeLaporan: String = ""
+    var kodeLaporan: String = "",
+    var foto: String = ""
 )

@@ -21,6 +21,9 @@ import com.google.firebase.database.ValueEventListener
 import com.polinema.mi.app_maps.BaseActivity
 import com.polinema.mi.app_maps.R
 import com.polinema.mi.app_maps.databinding.ActivityDashboardBinding
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 class DashboardActivity : Fragment() {
 
@@ -39,15 +42,6 @@ class DashboardActivity : Fragment() {
         b = ActivityDashboardBinding.inflate(layoutInflater)
         v = b.root
 
-        b.btnTambahLaporan.setOnClickListener {
-            val fragment = TambahLaporanActivity()
-            val fragmentManager = parentFragmentManager
-            val transaction = fragmentManager.beginTransaction()
-            transaction.replace(R.id.frameLayout, fragment)
-            transaction.addToBackStack(null)
-            transaction.commit()
-        }
-
         setupFirebase()
         setupRecyclerView()
         loadLaporan()
@@ -64,28 +58,24 @@ class DashboardActivity : Fragment() {
 
     private fun setupRecyclerView() {
         adapter = LaporanAdapter(mutableListOf(),
-            onEditClick = { laporan ->
-                val fragment = EditLaporanActivity()
-                val bundle = Bundle()
-                bundle.putString("kodeLaporan", laporan.kodeLaporan)
-                fragment.arguments = bundle
-                val fragmentManager = parentFragmentManager
-                val transaction = fragmentManager.beginTransaction()
-                transaction.replace(R.id.frameLayout, fragment)
-                transaction.addToBackStack(null)
-                transaction.commit()
-            },
-            onDeleteClick = { laporan ->
-                AlertDialog.Builder(thisParent)
-                    .setTitle("Konfirmasi")
-                    .setMessage("Apakah Anda yakin ingin menghapus laporan ini?")
-                    .setPositiveButton("Ya") { dialog, which ->
-                        deleteLaporan(laporan)
-                    }
-                    .setNegativeButton("Tidak") { dialog, which ->
-                        dialog.dismiss()
-                    }
-                    .show()
+            onLaporClick = { laporan ->
+                val today = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Calendar.getInstance().time)
+                if (laporan.tanggal == today) {
+                    Toast.makeText(thisParent, "Pindah fragment untuk edit", Toast.LENGTH_SHORT).show()
+
+                    //berpindah ke halaman edit
+//                val fragment = EditLaporanActivity()
+//                val bundle = Bundle()
+//                bundle.putString("kodeLaporan", laporan.kodeLaporan)
+//                fragment.arguments = bundle
+//                val fragmentManager = parentFragmentManager
+//                val transaction = fragmentManager.beginTransaction()
+//                transaction.replace(R.id.frameLayout, fragment)
+//                transaction.addToBackStack(null)
+//                transaction.commit()
+                }else{
+                    Toast.makeText(thisParent, "Hanya dapat dilaporkan pada tanggal ${laporan.tanggal}", Toast.LENGTH_SHORT).show()
+                }
             }
         )
 

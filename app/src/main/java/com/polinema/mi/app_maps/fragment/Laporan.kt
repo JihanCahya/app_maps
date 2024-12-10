@@ -6,5 +6,6 @@ data class Laporan(
     var ritase: String = "",
     var namaPt: String = "",
     var kodeLaporan: String = "",
-    var foto: String = ""
+    var foto: String = "",
+    var status: String = ""
 )

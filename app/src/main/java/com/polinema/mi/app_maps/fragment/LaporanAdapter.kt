@@ -3,6 +3,7 @@ package com.polinema.mi.app_maps.fragment
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.polinema.mi.app_maps.R
@@ -12,8 +13,7 @@ import java.util.Locale
 
 class LaporanAdapter(
     private var Laporan: MutableList<Laporan>,
-    private val onEditClick: (Laporan) -> Unit,
-    private val onDeleteClick: (Laporan) -> Unit
+    private val onLaporClick: (Laporan) -> Unit
 ) : RecyclerView.Adapter<LaporanAdapter.LaporanViewHolder>(){
 
     fun updateProducts(newlaporan: List<Laporan>) {
@@ -53,18 +53,30 @@ class LaporanAdapter(
                 }
 
                 tvPt.text = laporan.namaPt
-                tvKubikasi.text = "Kubikasi: ${laporan.kubikasi}"
-                tvRitase.text = "Ritase: ${laporan.ritase}"
+                tvKubikasi.text = "Kubikasi: ${laporan.kubikasi ?: "-"}"
+                tvRitase.text = "Ritase: ${laporan.ritase ?: "-"}"
 
-                // Tambahkan Glide untuk memuat foto dari URL
                 Glide.with(itemView.context)
-                    .load(laporan.foto)
-                    .placeholder(R.drawable.bg) // Tambahkan placeholder image
-                    .error(R.drawable.bg) // Tambahkan error image jika gagal memuat
+                    .load(laporan.foto ?: "")
+                    .placeholder(R.drawable.img)
+                    .error(R.drawable.img)
                     .into(ivProductImage)
 
-                btnEdit.setOnClickListener { onEditClick(laporan) }
-                btnDelete.setOnClickListener { onDeleteClick(laporan) }
+                if (laporan.status == "1") {
+                    btnLapor.apply {
+                        setBackgroundColor(ContextCompat.getColor(itemView.context, R.color.green))
+                        text = "Sudah Dilaporkan"
+                        isEnabled = false
+                    }
+                } else {
+                    btnLapor.apply {
+                        setBackgroundColor(ContextCompat.getColor(itemView.context, R.color.default_button_color))
+                        text = "Laporkan"
+                        isEnabled = true
+                    }
+                }
+
+                btnLapor.setOnClickListener { onLaporClick(laporan) }
             }
         }
     }

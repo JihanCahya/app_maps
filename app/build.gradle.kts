@@ -57,6 +57,7 @@ dependencies {
     implementation ("com.github.mumayank:AirLocation:2.5.2")
     implementation ("com.google.android.gms:play-services-maps:18.1.0")
     implementation("com.google.firebase:firebase-storage-ktx:21.0.1")
+    implementation("com.google.firebase:firebase-messaging-ktx:24.1.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

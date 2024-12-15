@@ -1,13 +1,16 @@
 package com.polinema.mi.app_maps.auth
-
 import android.app.ProgressDialog
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.ktx.auth
@@ -21,6 +24,8 @@ import com.polinema.mi.app_maps.MainActivity
 import com.polinema.mi.app_maps.R
 import com.polinema.mi.app_maps.databinding.ActivityLoginBinding
 import com.polinema.mi.app_maps.map.maps
+import com.google.firebase.messaging.FirebaseMessaging
+import android.Manifest
 
 class LoginActivity : AppCompatActivity(), View.OnClickListener {
 
@@ -30,24 +35,6 @@ class LoginActivity : AppCompatActivity(), View.OnClickListener {
     var currentUser : FirebaseUser? = null
     private val sharedPreferences: SharedPreferences by lazy {
         getSharedPreferences("login_prefs", Context.MODE_PRIVATE)
-    }
-    companion object{
-        private const val RC_SIGN_IN = 200
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        b = ActivityLoginBinding.inflate(layoutInflater)
-        setContentView(b.root)
-
-        b.btnLogDaftar.setOnClickListener(this)
-        b.btnLogMasuk.setOnClickListener(this)
-
-        progressDialog = ProgressDialog(this)
-        progressDialog.setTitle("Proses login")
-        progressDialog.setMessage("Silahkan tunggu...")
-
-        auth = Firebase.auth
     }
 
     override fun onStart() {
@@ -118,16 +105,60 @@ class LoginActivity : AppCompatActivity(), View.OnClickListener {
         }
     }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        b = ActivityLoginBinding.inflate(layoutInflater)
+        setContentView(b.root)
+
+        b.btnLogDaftar.setOnClickListener(this)
+        b.btnLogMasuk.setOnClickListener(this)
+
+        progressDialog = ProgressDialog(this)
+        progressDialog.setTitle("Proses login")
+        progressDialog.setMessage("Silahkan tunggu...")
+
+        auth = Firebase.auth
+
+        // Request notification permission for Android 13+ (API level 33+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestNotificationPermission()
+        }
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    NOTIFICATION_PERMISSION_CODE
+                )
+            }
+        }
+    }
+
     private fun checkUserRole(userId: String) {
-        val databaseReference = FirebaseDatabase.getInstance("https://pml-sem-5-default-rtdb.firebaseio.com/").reference.child("users").child(userId)
+        val databaseReference = FirebaseDatabase.getInstance("https://pml-sem-5-default-rtdb.firebaseio.com/")
+            .reference.child("users").child(userId)
 
         databaseReference.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(dataSnapshot: DataSnapshot) {
                 if (dataSnapshot.exists()) {
                     val nama = currentUser!!.displayName.toString()
-                    val intent = Intent(this@LoginActivity, BaseActivity::class.java)
-                    startActivity(intent)
-                    Toast.makeText(this@LoginActivity, "Selamat datang $nama", Toast.LENGTH_SHORT).show()
+
+                    // Subscribe to multiple relevant topics
+                    val topics = listOf("all_users", "new_reports")
+                    subscribeToTopics(topics) { success ->
+                        // Start BaseActivity after subscription attempt
+                        val intent = Intent(this@LoginActivity, BaseActivity::class.java)
+                        startActivity(intent)
+                        finish() // Prevent going back to login
+                        Toast.makeText(this@LoginActivity, "Selamat datang $nama", Toast.LENGTH_SHORT).show()
+                    }
                 } else {
                     Toast.makeText(this@LoginActivity, "Data pengguna tidak ditemukan", Toast.LENGTH_LONG).show()
                 }
@@ -137,5 +168,25 @@ class LoginActivity : AppCompatActivity(), View.OnClickListener {
                 Toast.makeText(this@LoginActivity, "Terjadi kesalahan saat mengakses database", Toast.LENGTH_LONG).show()
             }
         })
+    }
+
+    private fun subscribeToTopics(topics: List<String>, onComplete: (Boolean) -> Unit) {
+        var successCount = 0
+        topics.forEach { topic ->
+            FirebaseMessaging.getInstance().subscribeToTopic(topic)
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        successCount++
+                    }
+                    if (successCount == topics.size) {
+                        onComplete(true)
+                    }
+                }
+        }
+    }
+
+    companion object {
+        private const val RC_SIGN_IN = 200
+        private const val NOTIFICATION_PERMISSION_CODE = 100
     }
 }

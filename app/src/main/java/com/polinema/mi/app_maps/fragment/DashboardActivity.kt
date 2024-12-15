@@ -20,6 +20,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
+import com.google.firebase.database.ChildEventListener
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
@@ -28,6 +29,8 @@ import com.google.firebase.database.ValueEventListener
 import com.google.firebase.storage.FirebaseStorage
 import com.polinema.mi.app_maps.BaseActivity
 import com.polinema.mi.app_maps.R
+import com.polinema.mi.app_maps.auth.InAppNotificationManager
+import com.polinema.mi.app_maps.auth.Notification
 import com.polinema.mi.app_maps.databinding.ActivityDashboardBinding
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
@@ -60,7 +63,7 @@ class DashboardActivity : Fragment() {
     private lateinit var database: FirebaseDatabase
     private lateinit var laporanRef: DatabaseReference
     private lateinit var storageRef: FirebaseStorage
-
+    private lateinit var notificationManager: InAppNotificationManager
     private lateinit var adapter: LaporanAdapter
     private var selectedImageUri: Uri? = null
 
@@ -75,14 +78,56 @@ class DashboardActivity : Fragment() {
         thisParent = activity as BaseActivity
         b = ActivityDashboardBinding.inflate(layoutInflater)
         v = b.root
-
+        notificationManager = InAppNotificationManager(requireContext())
+        notificationManager.initialize(requireActivity())
         setupFirebase()
         setupRecyclerView()
         loadLaporan()
-
+        listenForNotifications()
         return v
     }
+    private fun listenForNotifications() {
+        val uid = auth.currentUser?.uid ?: return
+        val notificationsRef = database.getReference("notifications").child(uid)
 
+        notificationsRef.addChildEventListener(object : ChildEventListener {
+            override fun onChildAdded(snapshot: DataSnapshot, previousChildName: String?) {
+                val notification = snapshot.getValue(Notification::class.java)
+                notification?.let { showNotification(it) }
+            }
+
+            override fun onChildChanged(snapshot: DataSnapshot, previousChildName: String?) {
+                // Handle changes if needed
+            }
+
+            override fun onChildRemoved(snapshot: DataSnapshot) {
+                // Handle removal if needed
+            }
+
+            override fun onChildMoved(snapshot: DataSnapshot, previousChildName: String?) {
+                // Handle movement if needed
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("DashboardActivity", "Error listening for notifications: ${error.message}")
+            }
+        })
+    }
+
+    private fun showNotification(notification: Notification) {
+        val type = when (notification.type) {
+            "success" -> InAppNotificationManager.NotificationType.SUCCESS
+            "warning" -> InAppNotificationManager.NotificationType.WARNING
+            "error" -> InAppNotificationManager.NotificationType.ERROR
+            else -> InAppNotificationManager.NotificationType.INFO
+        }
+
+        notificationManager.showInAppNotification(
+            title = notification.title ?: "Notification",
+            message = notification.message ?: "",
+            type = type
+        )
+    }
     private fun setupFirebase() {
         auth = Firebase.auth
         val uid = auth.currentUser?.uid ?: ""

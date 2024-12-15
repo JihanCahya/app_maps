@@ -4,5 +4,15 @@
     <color name="white">#FFFFFFFF</color>
     <color name="green">#4CAF50</color>
     <color name="default_button_color">#FF6200EE</color>
+    <color name="notification_success_bg">#4CAF50</color>
+    <color name="notification_success_text">#FFFFFF</color>
 
+    <color name="notification_warning_bg">#FFC107</color>
+    <color name="notification_warning_text">#000000</color>
+
+    <color name="notification_error_bg">#F44336</color>
+    <color name="notification_error_text">#FFFFFF</color>
+
+    <color name="notification_info_bg">#2196F3</color>
+    <color name="notification_info_text">#FFFFFF</color>
 </resources>

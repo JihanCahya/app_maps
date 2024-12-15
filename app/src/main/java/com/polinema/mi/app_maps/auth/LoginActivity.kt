@@ -20,12 +20,12 @@ import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import com.google.firebase.ktx.Firebase
 import com.polinema.mi.app_maps.BaseActivity
-import com.polinema.mi.app_maps.MainActivity
 import com.polinema.mi.app_maps.R
 import com.polinema.mi.app_maps.databinding.ActivityLoginBinding
-import com.polinema.mi.app_maps.map.maps
-import com.google.firebase.messaging.FirebaseMessaging
 import android.Manifest
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import java.util.Date
 
 class LoginActivity : AppCompatActivity(), View.OnClickListener {
 
@@ -33,6 +33,7 @@ class LoginActivity : AppCompatActivity(), View.OnClickListener {
     lateinit var auth: FirebaseAuth
     lateinit var progressDialog: ProgressDialog
     var currentUser : FirebaseUser? = null
+    private lateinit var notificationManager: InAppNotificationManager
     private val sharedPreferences: SharedPreferences by lazy {
         getSharedPreferences("login_prefs", Context.MODE_PRIVATE)
     }
@@ -81,7 +82,11 @@ class LoginActivity : AppCompatActivity(), View.OnClickListener {
 
                 if (email.isEmpty() || password.isEmpty()){
                     progressDialog.dismiss()
-                    Toast.makeText(this, "Mohon isi form email dan password", Toast.LENGTH_SHORT).show()
+                    notificationManager.showInAppNotification(
+                        title = "Login Gagal",
+                        message = "Mohon isi form email dan password",
+                        type = InAppNotificationManager.NotificationType.ERROR
+                    )
                 } else {
                     auth.signInWithEmailAndPassword(email, password)
                         .addOnCompleteListener { task ->
@@ -92,23 +97,78 @@ class LoginActivity : AppCompatActivity(), View.OnClickListener {
                                         saveLoginStatus(currentUser!!.email.toString(), currentUser!!.uid)
                                         checkUserRole(currentUser!!.uid)
                                     } else {
-                                        Toast.makeText(this, "Email anda belum terverifikasi", Toast.LENGTH_LONG).show()
+                                        progressDialog.dismiss()
+                                        notificationManager.showInAppNotification(
+                                            title = "Verifikasi Email",
+                                            message = "Email anda belum terverifikasi",
+                                            type = InAppNotificationManager.NotificationType.WARNING
+                                        )
                                     }
                                 }
                             } else {
-                                Toast.makeText(this, "Email/password salah", Toast.LENGTH_LONG).show()
+                                progressDialog.dismiss()
+                                notificationManager.showInAppNotification(
+                                    title = "Login Gagal",
+                                    message = "Email/password salah",
+                                    type = InAppNotificationManager.NotificationType.ERROR
+                                )
                             }
-                            progressDialog.dismiss()
                         }
                 }
             }
         }
     }
 
+    private fun checkUserRole(userId: String) {
+        val databaseReference = FirebaseDatabase.getInstance("https://pml-sem-5-default-rtdb.firebaseio.com/")
+            .reference.child("users").child(userId)
+
+        databaseReference.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(dataSnapshot: DataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    val nama = currentUser!!.displayName.toString()
+
+                    // Show welcome notification
+                    notificationManager.showInAppNotification(
+                        title = "Login Berhasil",
+                        message = "Selamat datang $nama",
+                        type = InAppNotificationManager.NotificationType.SUCCESS
+                    )
+
+                    // Delayed navigation to prevent notification from being dismissed immediately
+                    lifecycleScope.launch {
+                        kotlinx.coroutines.delay(1500) // Give user time to see notification
+                        val intent = Intent(this@LoginActivity, BaseActivity::class.java)
+                        startActivity(intent)
+                        finish()
+                    }
+                } else {
+                    notificationManager.showInAppNotification(
+                        title = "Login Gagal",
+                        message = "Data pengguna tidak ditemukan",
+                        type = InAppNotificationManager.NotificationType.ERROR
+                    )
+                }
+            }
+
+            override fun onCancelled(databaseError: DatabaseError) {
+                notificationManager.showInAppNotification(
+                    title = "Kesalahan Database",
+                    message = "Terjadi kesalahan saat mengakses database",
+                    type = InAppNotificationManager.NotificationType.ERROR
+                )
+            }
+        })
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         b = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(b.root)
+
+        // Initialize In-App Notification Manager
+        notificationManager = InAppNotificationManager(this)
+        notificationManager.initialize(this)
 
         b.btnLogDaftar.setOnClickListener(this)
         b.btnLogMasuk.setOnClickListener(this)
@@ -141,52 +201,10 @@ class LoginActivity : AppCompatActivity(), View.OnClickListener {
         }
     }
 
-    private fun checkUserRole(userId: String) {
-        val databaseReference = FirebaseDatabase.getInstance("https://pml-sem-5-default-rtdb.firebaseio.com/")
-            .reference.child("users").child(userId)
-
-        databaseReference.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(dataSnapshot: DataSnapshot) {
-                if (dataSnapshot.exists()) {
-                    val nama = currentUser!!.displayName.toString()
-
-                    // Subscribe to multiple relevant topics
-                    val topics = listOf("all_users", "new_reports")
-                    subscribeToTopics(topics) { success ->
-                        // Start BaseActivity after subscription attempt
-                        val intent = Intent(this@LoginActivity, BaseActivity::class.java)
-                        startActivity(intent)
-                        finish() // Prevent going back to login
-                        Toast.makeText(this@LoginActivity, "Selamat datang $nama", Toast.LENGTH_SHORT).show()
-                    }
-                } else {
-                    Toast.makeText(this@LoginActivity, "Data pengguna tidak ditemukan", Toast.LENGTH_LONG).show()
-                }
-            }
-
-            override fun onCancelled(databaseError: DatabaseError) {
-                Toast.makeText(this@LoginActivity, "Terjadi kesalahan saat mengakses database", Toast.LENGTH_LONG).show()
-            }
-        })
-    }
-
-    private fun subscribeToTopics(topics: List<String>, onComplete: (Boolean) -> Unit) {
-        var successCount = 0
-        topics.forEach { topic ->
-            FirebaseMessaging.getInstance().subscribeToTopic(topic)
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        successCount++
-                    }
-                    if (successCount == topics.size) {
-                        onComplete(true)
-                    }
-                }
-        }
-    }
 
     companion object {
         private const val RC_SIGN_IN = 200
         private const val NOTIFICATION_PERMISSION_CODE = 100
     }
 }
+

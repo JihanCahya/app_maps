@@ -40,8 +40,11 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.http.Part
 import java.io.File
-class TambahLaporanActivity : Fragment(), View.OnClickListener {
+import com.polinema.mi.app_maps.utils.Constants
 
+
+class TambahLaporanActivity : Fragment(), View.OnClickListener {
+    val apiUrl = Constants.BASE_URL
     private lateinit var b : ActivityTambahLaporanBinding
     lateinit var thisParent: BaseActivity
     lateinit var v: View
@@ -68,11 +71,11 @@ class TambahLaporanActivity : Fragment(), View.OnClickListener {
         return v
     }
 
-    private var BASE_URL = "http://192.168.0.143:8000/api/v1/"
+    private var BASE_URL = "http://172.20.10.3:8000/api/v1/"
 
     private fun setupPtSpinner() {
         val retrofit = Retrofit.Builder()
-            .baseUrl(BASE_URL)
+            .baseUrl(apiUrl)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 

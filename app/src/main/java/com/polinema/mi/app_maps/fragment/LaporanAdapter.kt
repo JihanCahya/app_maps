@@ -42,41 +42,51 @@ class LaporanAdapter(
     inner class LaporanViewHolder(private val binding: ItemLaporanBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(laporan: Laporan) {
             binding.apply {
+                // Improved date formatting with null safety
                 val inputDateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
                 val outputDateFormat = SimpleDateFormat("dd MMMM yyyy", Locale.getDefault())
 
-                try {
-                    val date = inputDateFormat.parse(laporan.tanggal)
-                    tvTanggal.text = date?.let { outputDateFormat.format(it) }
+                // Safely format date or use original if parsing fails
+                tvTanggal.text = try {
+                    inputDateFormat.parse(laporan.tanggal)?.let { outputDateFormat.format(it) }
+                        ?: laporan.tanggal
                 } catch (e: Exception) {
-                    tvTanggal.text = laporan.tanggal
+                    laporan.tanggal
                 }
 
-                tvPt.text = laporan.namaPt
+                // Set text with null safety
+                tvPt.text = laporan.namaPt ?: "Tidak Diketahui"
                 tvKubikasi.text = "Kubikasi: ${laporan.kubikasi ?: "-"}"
                 tvRitase.text = "Ritase: ${laporan.ritase ?: "-"}"
+                Log.d("LaporanStatus", "Status gambar: ${laporan.foto_surat_jalan ?: "Unknown"}")
 
+                // Improved image loading
                 Glide.with(itemView.context)
-                    .load(laporan.foto ?: "")
-                    .placeholder(R.drawable.img)
-                    .error(R.drawable.img)
+                    .load(laporan.foto_surat_jalan)
+                    .placeholder(R.drawable.img) // Default placeholder
+                    .error(R.drawable.img) // Default error image
+                    .centerCrop() // Use centerCrop to fill the ImageView
                     .into(ivProductImage)
 
-                if (laporan.status == "1") {
-                    btnLapor.apply {
+                // Logging with null-safe status check
+                Log.d("LaporanStatus", "Status laporan: ${laporan.status ?: "Unknown"}")
+
+                // Button state management
+                val isReported = laporan.status == "1"
+                btnLapor.apply {
+                    if (isReported) {
                         setBackgroundColor(ContextCompat.getColor(itemView.context, R.color.green))
                         text = "Sudah Dilaporkan"
                         isEnabled = false
-                    }
-                } else {
-                    btnLapor.apply {
+                    } else {
                         setBackgroundColor(ContextCompat.getColor(itemView.context, R.color.default_button_color))
                         text = "Laporkan"
                         isEnabled = true
                     }
-                }
 
-                btnLapor.setOnClickListener { onLaporClick(laporan) }
+                    // Set click listener
+                    setOnClickListener { onLaporClick(laporan) }
+                }
             }
         }
     }

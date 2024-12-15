@@ -24,11 +24,48 @@ import com.polinema.mi.app_maps.MainActivity
 import com.polinema.mi.app_maps.R
 import com.polinema.mi.app_maps.databinding.ActivityRegisterBinding
 import com.polinema.mi.app_maps.map.maps
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.Body
+import retrofit2.http.POST
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
+import com.polinema.mi.app_maps.utils.Constants
 
+val apiUrl = Constants.BASE_URL
+object RetrofitClient {
+
+    val instance: UserApiService by lazy {
+        Retrofit.Builder()
+            .baseUrl(apiUrl)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(UserApiService::class.java)
+    }
+}
+interface UserApiService {
+    @POST("users/create")
+    suspend fun createUser(@Body userData: UserApiData): Response<ApiResponse>
+}
+
+data class UserApiData(
+    val name: String,
+    val username: String,
+    val password: String,
+    val uid: String
+)
+
+data class ApiResponse(
+    val success: Boolean,
+    val message: String
+)
 class RegisterActivity : AppCompatActivity() {
 
     private lateinit var b: ActivityRegisterBinding
@@ -168,17 +205,45 @@ class RegisterActivity : AppCompatActivity() {
             uid = uid,
             nama = encryptedText(nama),
             email = encryptedText(email),
-            password = encryptedText(password),
+            password = encryptedText(password)
         )
 
         usersRef.child(uid).setValue(userData)
             .addOnSuccessListener {
-                Toast.makeText(this, "Berhasil Menambahkan User", Toast.LENGTH_SHORT).show()
+                // Data berhasil disimpan di Firebase, sekarang kirim ke API
+                sendUserDataToApi(uid, nama, email, password)
             }
             .addOnFailureListener { e ->
                 Toast.makeText(this, "Gagal Menambahkan User: ${e.message}", Toast.LENGTH_SHORT).show()
             }
     }
+
+    private fun sendUserDataToApi(uid: String, name: String, username: String, password: String) {
+        val userApiData = UserApiData(
+            name = name,
+            username = username,
+            password = password,
+            uid = uid
+        )
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val response = RetrofitClient.instance.createUser(userApiData)
+                withContext(Dispatchers.Main) {
+                    if (response.isSuccessful && response.body()?.success == true) {
+                        Toast.makeText(this@RegisterActivity, "Berhasil mengirim data ke API.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this@RegisterActivity, "Gagal mengirim data ke API: ${response.body()?.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@RegisterActivity, "Terjadi kesalahan: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
 
     fun encryptedText(text: String): String {
         val secretKey = "1234567887654321"
